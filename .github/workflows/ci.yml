@@ -43,7 +43,7 @@ jobs:
         run: pytest tests/ -v
 
   build-wheels:
-    name: Build wheels
+    name: Build wheels (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -62,7 +62,9 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: build
-          args: --release --out dist
+          # abi3-py39 produces one cp39-abi3 wheel per platform, compatible
+          # with Python 3.9 through any future version (no PyO3 version cap).
+          args: --release --out dist --interpreter python3.9
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
