@@ -74,6 +74,7 @@ impl RustClient {
     #[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, allow_redirects=true, cookies=None))]
     fn request(
         &self,
+        py: Python<'_>,
         method: &str,
         url: &str,
         headers: Option<HashMap<String, String>>,
@@ -86,19 +87,27 @@ impl RustClient {
         cookies: Option<HashMap<String, String>>,
     ) -> PyResult<RawResponse> {
         let effective_timeout = timeout.or(self.default_timeout);
-        http_execute(
-            method,
-            url,
-            headers,
-            params,
-            body,
-            content_type,
-            auth,
-            effective_timeout,
-            self.verify,
-            allow_redirects,
-            cookies,
-        )
+        // Clone/copy all data needed before releasing the GIL.
+        let method = method.to_string();
+        let url = url.to_string();
+        let body_owned: Option<Vec<u8>> = body.map(|b| b.to_vec());
+        let content_type = content_type.map(|s| s.to_string());
+        let verify = self.verify;
+        py.allow_threads(|| {
+            http_execute(
+                &method,
+                &url,
+                headers,
+                params,
+                body_owned.as_deref(),
+                content_type.as_deref(),
+                auth,
+                effective_timeout,
+                verify,
+                allow_redirects,
+                cookies,
+            )
+        })
     }
 }
 
@@ -109,6 +118,7 @@ impl RustClient {
 #[pyfunction]
 #[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, verify=true, allow_redirects=true, cookies=None, no_proxy_all=false))]
 fn http_request(
+    py: Python<'_>,
     method: &str,
     url: &str,
     headers: Option<HashMap<String, String>>,
@@ -123,19 +133,26 @@ fn http_request(
     no_proxy_all: bool,
 ) -> PyResult<RawResponse> {
     let _ = no_proxy_all; // ureq reads NO_PROXY from env automatically
-    http_execute(
-        method,
-        url,
-        headers,
-        params,
-        body,
-        content_type,
-        auth,
-        timeout,
-        verify,
-        allow_redirects,
-        cookies,
-    )
+    // Clone/copy all borrowed data before releasing the GIL.
+    let method = method.to_string();
+    let url = url.to_string();
+    let body_owned: Option<Vec<u8>> = body.map(|b| b.to_vec());
+    let content_type = content_type.map(|s| s.to_string());
+    py.allow_threads(|| {
+        http_execute(
+            &method,
+            &url,
+            headers,
+            params,
+            body_owned.as_deref(),
+            content_type.as_deref(),
+            auth,
+            timeout,
+            verify,
+            allow_redirects,
+            cookies,
+        )
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -194,10 +211,12 @@ fn http_execute(
 
     if let Some(t) = timeout {
         let dur = Duration::from_secs_f64(t);
+        // Only set connect and read timeouts. Setting timeout_write (SO_SNDTIMEO) is
+        // intentionally skipped: on gVisor the syscall causes the kernel to delay all
+        // TCP transmission until the timer fires, breaking every request.
         agent_builder = agent_builder
             .timeout_connect(dur)
-            .timeout_read(dur)
-            .timeout_write(dur);
+            .timeout_read(dur);
     }
 
     agent_builder = agent_builder.redirects(if allow_redirects { 30 } else { 0 });

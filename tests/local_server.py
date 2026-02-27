@@ -22,20 +22,24 @@ app.config["TESTING"] = True
 def _common_response():
     """Build the standard httpbin-like response dict."""
     ct = request.content_type or ""
-    form_data = {}
     json_data = None
     raw_data = ""
 
-    if request.data:
+    # Flask parses x-www-form-urlencoded bodies into request.form automatically,
+    # leaving request.data empty — so read form directly.
+    if "application/x-www-form-urlencoded" in ct:
+        form_data = dict(request.form)
+    elif request.data:
+        form_data = {}
         if "application/json" in ct:
             try:
                 json_data = request.get_json(force=True)
             except Exception:
                 raw_data = request.data.decode("utf-8", errors="replace")
-        elif "application/x-www-form-urlencoded" in ct:
-            form_data = dict(request.form)
         else:
             raw_data = request.data.decode("utf-8", errors="replace")
+    else:
+        form_data = {}
 
     return {
         "args": dict(request.args),
