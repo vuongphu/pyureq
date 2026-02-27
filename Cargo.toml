@@ -1,0 +1,22 @@
+[package]
+name = "rupy"
+version = "0.1.0"
+edition = "2021"
+description = "A requests-compatible HTTP library powered by Rust's reqwest"
+
+[lib]
+name = "_rupy"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }
+# ureq is a true blocking HTTP client — no tokio, no async runtime.
+ureq = { version = "2", features = ["json", "native-tls"] }
+native-tls = "0.2"
+serde_json = "1"
+base64 = "0.22"
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
