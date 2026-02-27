@@ -176,54 +176,103 @@ pytest tests/ -v
 
 ## Benchmarks
 
-Measured against a local Flask server (eliminates network jitter).
-All numbers are mean latency in milliseconds; lower is better.
+All benchmarks run against a local server to eliminate network jitter.
+
+### Single-thread latency
+
+Mean latency (ms) per request — lower is better.
 
 ```
-Scenario               rupy     requests    httpx*   curl_cffi
-─────────────────────────────────────────────────────────────────
-GET /get               1.58       2.59       2.39       2.46
-GET /get (params)      1.45       2.68       2.37       2.36
-POST JSON              1.56       2.74       2.39       2.16
-POST form              1.68       3.33       2.17       2.17
-GET /status/200        1.24       2.43       1.85       2.03
-GET /headers           1.44       2.72       2.37       2.37
-─────────────────────────────────────────────────────────────────
-Overall mean           1.49       2.75       2.26       2.26
+Scenario               rupy     requests   curl_cffi    httpx†
+──────────────────────────────────────────────────────────────
+GET /get               1.58       2.59        2.46       2.39
+GET /get (params)      1.45       2.68        2.36       2.37
+POST JSON              1.56       2.74        2.16       2.39
+POST form              1.68       3.33        2.17       2.17
+GET /status/200        1.24       2.43        2.03       1.85
+GET /headers           1.44       2.72        2.37       2.37
+──────────────────────────────────────────────────────────────
+Overall mean           1.49       2.75        2.26       2.26
+                       ×1.0    ×1.85 slower ×1.52 slower ×1.52 slower
 ```
 
-_*httpx session (`Client`) used for fair comparison; `httpx.get()` stateless
-has ~68 ms overhead per call because it creates and tears down a full
-transport on every request._
+_†httpx measured with `Client()` session; `httpx.get()` stateless has ~68 ms
+per-call overhead (creates/destroys a full transport each time)._
 
-Run the benchmark yourself:
+### Concurrency — 1 000 simultaneous threads
+
+Each thread makes 5 sequential requests (5 000 total). Higher req/s and lower
+p99 latency is better; fewer errors is better.
+
+```
+Mode        Library      req/s    p99 ms    errors
+──────────────────────────────────────────────────
+stateless   rupy          268      7 242      26 / 5000  ← fewest errors
+            curl_cffi     226     10 039     457 / 5000
+            requests      203     15 248     404 / 5000
+
+session     rupy          261      9 206      46 / 5000
+            curl_cffi     232     10 038     450 / 5000
+            requests      244     10 015     327 / 5000
+```
+
+At 1 000 threads rupy delivers **19 % more throughput** and **17× fewer
+timeouts** than curl_cffi in stateless mode.  The advantage comes from lower
+Python-layer overhead per request: because rupy's response parsing happens
+entirely in Rust, it holds the GIL for a shorter window (~0.3 ms vs ~0.8 ms),
+reducing GIL pile-up under heavy concurrency.
+
+### GIL behaviour
+
+All four libraries release the GIL during network I/O — background Python
+threads can run while requests are in flight.  The difference is *how much*
+Python overhead each library runs with the GIL held before and after each I/O
+call.
+
+```
+Library      GIL held per request (approx)
+──────────────────────────────────────────
+rupy          ~0.3 ms   (parsing in Rust)
+curl_cffi     ~0.8 ms   (CFFI + Python result handling)
+requests      ~1.2 ms   (urllib3 pure-Python stack)
+```
+
+Run the benchmarks yourself:
 
 ```bash
 pip install requests httpx curl_cffi
-python benchmarks/bench.py --iterations 500
+
+python benchmarks/bench.py          --iterations 500   # latency
+python benchmarks/bench_threads.py  --requests 5       # concurrency
+python benchmarks/bench_gil.py      --iterations 200   # GIL behaviour
 ```
 
 ## How it works
 
 ```
-Python call → rupy Python layer
-                  │ (GIL released via py.allow_threads)
-                  ↓
-             Rust / ureq
-                  │
-             TLS (native-tls / system OpenSSL)
-                  │
-             TCP socket
+Python call
+    │
+    ▼
+rupy Python layer   ← thin: arg normalisation, exception mapping
+    │
+    │  py.allow_threads()  ← GIL released here
+    ▼
+Rust / ureq         ← HTTP request + response parsing, all in Rust
+    │
+    ▼
+native-tls          ← system TLS on macOS/Windows, bundled OpenSSL on Linux
+    │
+    ▼
+TCP socket
 ```
 
-The Python layer converts arguments and responses between Python objects and
-Rust types.  The GIL is released for the duration of each network call, so
-the Rust HTTP code runs truly concurrently with other Python threads.
+The GIL is released for the entire Rust call — connection, TLS handshake,
+`send`, `recv`, and response parsing all happen without blocking other Python
+threads.  The GIL is re-acquired only to build the final Python `Response`
+object.
 
-The Rust core uses [ureq](https://github.com/algesten/ureq), a blocking
-(no async runtime) HTTP/1.1 client.  TLS is handled by `native-tls`, which
-links against the system's TLS library on macOS and Windows and a bundled
-OpenSSL on Linux.
+The Rust core uses [ureq](https://github.com/algesten/ureq), a synchronous
+(no async runtime) HTTP/1.1 client built on Rust's standard blocking I/O.
 
 ## License
 
