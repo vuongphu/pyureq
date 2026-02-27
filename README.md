@@ -174,6 +174,35 @@ pip install pytest flask
 pytest tests/ -v
 ```
 
+## Benchmarks
+
+Measured against a local Flask server (eliminates network jitter).
+All numbers are mean latency in milliseconds; lower is better.
+
+```
+Scenario               rupy     requests    httpx*   curl_cffi
+─────────────────────────────────────────────────────────────────
+GET /get               1.58       2.59       2.39       2.46
+GET /get (params)      1.45       2.68       2.37       2.36
+POST JSON              1.56       2.74       2.39       2.16
+POST form              1.68       3.33       2.17       2.17
+GET /status/200        1.24       2.43       1.85       2.03
+GET /headers           1.44       2.72       2.37       2.37
+─────────────────────────────────────────────────────────────────
+Overall mean           1.49       2.75       2.26       2.26
+```
+
+_*httpx session (`Client`) used for fair comparison; `httpx.get()` stateless
+has ~68 ms overhead per call because it creates and tears down a full
+transport on every request._
+
+Run the benchmark yourself:
+
+```bash
+pip install requests httpx curl_cffi
+python benchmarks/bench.py --iterations 500
+```
+
 ## How it works
 
 ```
