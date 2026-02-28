@@ -71,6 +71,7 @@ impl RustClient {
         Ok(RustClient { verify, default_timeout: timeout })
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, allow_redirects=true, cookies=None))]
     fn request(
         &self,
@@ -116,6 +117,7 @@ impl RustClient {
 // ---------------------------------------------------------------------------
 
 #[pyfunction]
+#[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, verify=true, allow_redirects=true, cookies=None, no_proxy_all=false))]
 fn http_request(
     py: Python<'_>,
@@ -182,6 +184,7 @@ fn pct(s: &str) -> String {
     out
 }
 
+#[allow(clippy::too_many_arguments)]
 fn http_execute(
     method: &str,
     url: &str,
