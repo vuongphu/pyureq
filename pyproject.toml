@@ -4,14 +4,36 @@ build-backend = "maturin"
 
 [project]
 name = "pyureq"
-version = "0.1.0"
+version = "0.1.1"
 description = "A requests-compatible HTTP library powered by Rust's ureq crate"
+readme = "README.md"
 requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "vuongphu" },
+]
+keywords = ["http", "requests", "rust", "ureq", "client"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Rust",
     "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
 ]
+
+[project.urls]
+Homepage = "https://github.com/vuongphu/pyureq"
+Repository = "https://github.com/vuongphu/pyureq"
+"Bug Tracker" = "https://github.com/vuongphu/pyureq/issues"
+Changelog = "https://github.com/vuongphu/pyureq/blob/main/CHANGELOG.md"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
