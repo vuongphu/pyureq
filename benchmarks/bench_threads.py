@@ -1,5 +1,5 @@
 """
-Concurrent threads benchmark: rupy vs curl_cffi (and others)
+Concurrent threads benchmark: pyureq vs curl_cffi (and others)
 =============================================================
 
 Spawns N threads simultaneously, each making M HTTP requests.
@@ -69,8 +69,8 @@ def start_threaded_server():
 
 LIBS: dict = {}
 
-import rupy
-LIBS["rupy"] = rupy
+import pyureq
+LIBS["pyureq"] = pyureq
 
 try:
     import requests
@@ -174,7 +174,7 @@ def run_session(lib_name: str, lib, n_threads: int, n_req: int) -> dict:
     mem_before = rss_mb()
 
     def _make_session():
-        if lib_name == "rupy":
+        if lib_name == "pyureq":
             return lib.Session()
         elif lib_name == "requests":
             return lib.Session()

@@ -1,4 +1,4 @@
-"""Data structures used by rupy."""
+"""Data structures used by pyureq."""
 
 from collections.abc import MutableMapping
 

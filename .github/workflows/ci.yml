@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: ["**"]
+    tags: ["v*"]
   pull_request:
     branches: ["**"]
 
@@ -72,7 +73,7 @@ jobs:
         run: pip install pytest pytest-cov flask
 
       - name: Run tests with coverage
-        run: pytest tests/ -v --cov=rupy --cov-report=xml --cov-report=term-missing
+        run: pytest tests/ -v --cov=pyureq --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -111,15 +112,18 @@ jobs:
           path: dist/
 
   release:
-    name: Publish to PyPI
+    name: Publish to PyPI + GitHub Release
     runs-on: ubuntu-latest
     needs: [lint, test, build-wheels]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     environment: pypi
     permissions:
       id-token: write
+      contents: write   # required for GitHub Release creation
 
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           pattern: wheels-*
@@ -128,3 +132,31 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            ```
+            pip install pyureq==${{ github.ref_name }}
+            ```
+
+            Full changelog: https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md
+
+      - name: Update repository About description
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method PATCH /repos/${{ github.repository }} \
+            -f description="A requests-compatible Python HTTP library powered by Rust's ureq" \
+            -f homepage="https://pypi.org/project/pyureq/" \
+            -f topics[]="python" \
+            -f topics[]="rust" \
+            -f topics[]="http" \
+            -f topics[]="requests" \
+            -f topics[]="pyo3" \
+            -f topics[]="ureq" || true

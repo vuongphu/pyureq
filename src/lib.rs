@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 // RawResponse
 // ---------------------------------------------------------------------------
 
-#[pyclass(module = "rupy._rupy")]
+#[pyclass(module = "pyureq._pyureq")]
 pub struct RawResponse {
     status_code: u16,
     headers: HashMap<String, String>,
@@ -56,7 +56,7 @@ impl RawResponse {
 // RustClient (Session backing)
 // ---------------------------------------------------------------------------
 
-#[pyclass(module = "rupy._rupy")]
+#[pyclass(module = "pyureq._pyureq")]
 pub struct RustClient {
     verify: bool,
     default_timeout: Option<f64>,
@@ -345,8 +345,8 @@ fn tcp_probe(host: &str, port: u16) -> PyResult<bool> {
 // Module
 // ---------------------------------------------------------------------------
 
-#[pymodule(name = "_rupy")]
-fn rupy_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+#[pymodule(name = "_pyureq")]
+fn pyureq_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RawResponse>()?;
     m.add_class::<RustClient>()?;
     m.add_function(wrap_pyfunction!(http_request, m)?)?;

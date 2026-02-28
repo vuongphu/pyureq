@@ -1,6 +1,6 @@
 """Flask-based HTTP test server that mimics httpbin.org endpoints.
 
-Used only for the rupy test suite — not part of the library itself.
+Used only for the pyureq test suite — not part of the library itself.
 """
 
 import base64

@@ -1,7 +1,7 @@
 """Backward-compatibility tests.
 
 Verifies that code written for ``requests`` runs without modification
-when ``import rupy as requests`` is used instead.
+when ``import pyureq as requests`` is used instead.
 """
 
 import pytest
@@ -20,8 +20,8 @@ def server():
 
 
 def get_client():
-    """Return ``rupy`` imported as ``requests``."""
-    import rupy as requests
+    """Return ``pyureq`` imported as ``requests``."""
+    import pyureq as requests
     return requests
 
 
@@ -195,7 +195,7 @@ class TestExistingCodePattern:
 
     def test_api_client_pattern(self):
         """Typical API client class pattern."""
-        import rupy as requests
+        import pyureq as requests
 
         class APIClient:
             def __init__(self, api_key, base_url):
@@ -230,7 +230,7 @@ class TestExistingCodePattern:
 
     def test_response_chaining_pattern(self):
         """Common: resp.raise_for_status() then .json()."""
-        import rupy as requests
+        import pyureq as requests
 
         def fetch_data(url):
             resp = requests.get(url, timeout=30)
@@ -243,7 +243,7 @@ class TestExistingCodePattern:
 
     def test_context_manager_pattern(self):
         """using Session as context manager."""
-        import rupy as requests
+        import pyureq as requests
 
         results = []
         with requests.Session() as session:

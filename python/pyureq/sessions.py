@@ -4,7 +4,7 @@ import builtins
 import json as _json
 from urllib.parse import urlencode
 
-from . import _rupy
+from . import _pyureq
 from .exceptions import (
     ConnectionError,
     RequestException,
@@ -18,7 +18,7 @@ from .structures import CaseInsensitiveDict
 _builtin_ConnectionError = builtins.ConnectionError
 
 _DEFAULT_HEADERS = {
-    "User-Agent": "rupy/0.1.0",
+    "User-Agent": "pyureq/0.1.0",
     "Accept-Encoding": "gzip, deflate, br",
     "Accept": "*/*",
     "Connection": "keep-alive",
@@ -104,7 +104,7 @@ def _dispatch(client_or_none, method, url, **kwargs):
             )
         else:
             # Stateless path — create a one-shot client
-            raw = _rupy.http_request(
+            raw = _pyureq.http_request(
                 method=method,
                 url=url,
                 headers=headers_dict,
@@ -141,7 +141,7 @@ class Session:
 
     Usage::
 
-        with rupy.Session() as s:
+        with pyureq.Session() as s:
             s.headers.update({"X-MyHeader": "value"})
             r = s.get("https://example.com")
     """
@@ -156,7 +156,7 @@ class Session:
         self.allow_redirects = True
 
         # Persistent Rust client — connection pool lives here
-        self._client = _rupy.RustClient(verify=True)
+        self._client = _pyureq.RustClient(verify=True)
 
     @property
     def verify(self) -> bool:
@@ -166,7 +166,7 @@ class Session:
     @verify.setter
     def verify(self, value: bool):
         self._verify = bool(value)
-        self._client = _rupy.RustClient(verify=self._verify)
+        self._client = _pyureq.RustClient(verify=self._verify)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -248,4 +248,4 @@ class Session:
         self._client = None
 
     def __repr__(self):
-        return "<rupy.Session>"
+        return "<pyureq.Session>"

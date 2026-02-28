@@ -1,4 +1,4 @@
-"""Type stubs for the rupy Rust extension module (_rupy).
+"""Type stubs for the pyureq Rust extension module (_pyureq).
 
 These stubs enable IDE autocompletion and type-checking (mypy/pyright) for
 the compiled Rust extension.  They mirror the PyO3 #[pyclass] and #[pymethods]
@@ -10,7 +10,7 @@ from typing import Optional
 class RawResponse:
     """Raw HTTP response returned directly from the Rust core.
 
-    Python code should use :class:`rupy.models.Response` instead, which wraps
+    Python code should use :class:`pyureq.models.Response` instead, which wraps
     this object and provides the full ``requests``-compatible API.
     """
 
@@ -38,7 +38,7 @@ class RawResponse:
 class RustClient:
     """Persistent HTTP client with a connection pool.
 
-    Created once per :class:`rupy.Session` and reused across requests.  The
+    Created once per :class:`pyureq.Session` and reused across requests.  The
     underlying ``ureq`` agent keeps connections alive for efficiency.
     """
 
@@ -124,7 +124,7 @@ def http_request(
     """Execute a one-shot (stateless) HTTP request.
 
     Creates a temporary ``ureq`` agent for this single request — no connection
-    pooling.  Use :class:`RustClient` (via :class:`rupy.Session`) for pooled
+    pooling.  Use :class:`RustClient` (via :class:`pyureq.Session`) for pooled
     access.
 
     Parameters

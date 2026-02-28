@@ -1,5 +1,5 @@
 """
-Benchmark: rupy vs requests vs httpx vs curl_cffi
+Benchmark: pyureq vs requests vs httpx vs curl_cffi
 ==================================================
 
 Runs against a local Flask server to eliminate network jitter.
@@ -41,8 +41,8 @@ BASE = f"http://127.0.0.1:{PORT}"
 
 LIBS: dict[str, object] = {}
 
-import rupy
-LIBS["rupy"] = rupy
+import pyureq
+LIBS["pyureq"] = pyureq
 
 try:
     import requests
@@ -198,8 +198,8 @@ def _session_scenarios(n: int) -> dict:
     sessions = {}
 
     # Create sessions
-    if "rupy" in LIBS:
-        sessions["rupy"] = rupy.Session()
+    if "pyureq" in LIBS:
+        sessions["pyureq"] = pyureq.Session()
     if "requests" in LIBS:
         sessions["requests"] = LIBS["requests"].Session()
     if "httpx" in LIBS:
