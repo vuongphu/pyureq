@@ -25,6 +25,10 @@ jobs:
     defaults:
       run:
         shell: bash
+    # Force UTF-8 I/O on all platforms so Unicode box-drawing characters in
+    # benchmark output don't crash on Windows' default cp1252 console encoding.
+    env:
+      PYTHONUTF8: "1"
 
     steps:
       - uses: actions/checkout@v4
