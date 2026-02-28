@@ -1,11 +1,11 @@
 [package]
-name = "rupy"
+name = "pyureq"
 version = "0.1.0"
 edition = "2021"
-description = "A requests-compatible HTTP library powered by Rust's reqwest"
+description = "A requests-compatible HTTP library powered by Rust's ureq"
 
 [lib]
-name = "_rupy"
+name = "_pyureq"
 crate-type = ["cdylib"]
 
 [dependencies]

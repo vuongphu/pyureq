@@ -16,4 +16,4 @@ classifiers = [
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "python"
-module-name = "rupy._rupy"
+module-name = "pyureq._pyureq"

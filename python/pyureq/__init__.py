@@ -1,20 +1,20 @@
-"""rupy — A requests-compatible HTTP library powered by Rust's reqwest.
+"""pyureq — A requests-compatible HTTP library powered by Rust's ureq.
 
 Drop-in replacement for the ``requests`` package::
 
-    import rupy as requests          # alias it and existing code just works
+    import pyureq as requests        # alias it and existing code just works
     r = requests.get("https://example.com")
     print(r.status_code, r.text)
 
 Or use the native API::
 
-    import rupy
-    r = rupy.get("https://httpbin.org/get", params={"q": "rust"})
+    import pyureq
+    r = pyureq.get("https://httpbin.org/get", params={"q": "rust"})
     data = r.json()
 """
 
 __version__ = "0.1.0"
-__author__ = "rupy contributors"
+__author__ = "pyureq contributors"
 
 # Re-export the public surface that matches requests.*
 from .exceptions import (  # noqa: F401
@@ -39,7 +39,7 @@ from .exceptions import (  # noqa: F401
 from .models import Response  # noqa: F401
 from .sessions import Session  # noqa: F401
 from . import exceptions  # noqa: F401
-from . import _rupy  # noqa: F401 (Rust extension)
+from . import _pyureq  # noqa: F401 (Rust extension)
 
 from .sessions import _dispatch as _make_request
 

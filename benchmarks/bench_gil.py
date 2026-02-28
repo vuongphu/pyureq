@@ -1,5 +1,5 @@
 """
-GIL behaviour: rupy vs curl_cffi vs requests vs httpx
+GIL behaviour: pyureq vs curl_cffi vs requests vs httpx
 ======================================================
 
 Methodology
@@ -42,8 +42,8 @@ URL  = f"{BASE}/get"
 
 LIBS: dict = {}
 
-import rupy
-LIBS["rupy"] = rupy
+import pyureq
+LIBS["pyureq"] = pyureq
 
 try:
     import requests
@@ -139,7 +139,7 @@ def run_gil_test(lib, n: int) -> dict:
 
 def run_session_gil_test(lib_name: str, lib, n: int) -> dict:
     """Same test but using a persistent session / Client."""
-    if lib_name == "rupy":
+    if lib_name == "pyureq":
         sess = lib.Session()
     elif lib_name == "requests":
         sess = lib.Session()

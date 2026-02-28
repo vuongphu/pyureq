@@ -1,5 +1,5 @@
 """
-Duration-based stress test: rupy vs requests, httpx, curl_cffi
+Duration-based stress test: pyureq vs requests, httpx, curl_cffi
 ==============================================================
 
 Unlike bench_threads.py (which fixes requests-per-thread so higher thread
@@ -31,8 +31,8 @@ from local_server import start_server
 
 LIBS: dict = {}
 
-import rupy
-LIBS["rupy"] = rupy
+import pyureq
+LIBS["pyureq"] = pyureq
 
 try:
     import requests

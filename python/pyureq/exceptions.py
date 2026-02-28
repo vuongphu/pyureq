@@ -2,7 +2,7 @@
 
 
 class RequestException(IOError):
-    """Base class for all rupy exceptions."""
+    """Base class for all pyureq exceptions."""
 
     def __init__(self, *args, response=None, request=None, **kwargs):
         self.response = response

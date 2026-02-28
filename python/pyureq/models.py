@@ -20,7 +20,7 @@ class Response:
         Parameters
         ----------
         raw:
-            A ``rupy._rupy.RawResponse`` instance from the Rust core.
+            A ``pyureq._pyureq.RawResponse`` instance from the Rust core.
         """
         self._raw = raw
         self._content: bytes = bytes(raw.body)
@@ -165,7 +165,7 @@ class Response:
     # ------------------------------------------------------------------
 
     def close(self):
-        """Release the connection.  No-op for rupy (Rust manages pooling)."""
+        """Release the connection.  No-op for pyureq (Rust manages pooling)."""
 
     def json(self, **kwargs):
         """Return the json-encoded content of the response.

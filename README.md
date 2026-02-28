@@ -1,10 +1,10 @@
-# rupy
+# pyureq
 
 A `requests`-compatible Python HTTP library backed by Rust's
 [ureq](https://github.com/algesten/ureq) crate.  Drop-in replacement for
 `requests` — same API, lower overhead, no external runtime dependency.
 
-[![CI](https://github.com/vuongphu/rupy/actions/workflows/ci.yml/badge.svg)](https://github.com/vuongphu/rupy/actions/workflows/ci.yml)
+[![CI](https://github.com/vuongphu/pyureq/actions/workflows/ci.yml/badge.svg)](https://github.com/vuongphu/pyureq/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/pyureq.svg)](https://pypi.org/project/pyureq/)
 [![Python 3.9+](https://img.shields.io/pypi/pyversions/pyureq.svg)](https://pypi.org/project/pyureq/)
 
@@ -14,34 +14,29 @@ A `requests`-compatible Python HTTP library backed by Rust's
 pip install pyureq
 ```
 
-> **Note:** The PyPI distribution is named `pyureq`; the import name is `rupy`.
-> ```python
-> import rupy          # after: pip install pyureq
-> ```
-
 Pre-built wheels are available for Linux, macOS, and Windows (Python 3.9+).
 The wheel bundles its own OpenSSL, so no system dependency is required.
 
 ## Quick start
 
 ```python
-import rupy
+import pyureq
 
 # Simple GET
-r = rupy.get("https://httpbin.org/get", params={"q": "hello"})
+r = pyureq.get("https://httpbin.org/get", params={"q": "hello"})
 print(r.status_code)   # 200
 print(r.json())
 
 # POST JSON
-r = rupy.post("https://httpbin.org/post", json={"key": "value"})
+r = pyureq.post("https://httpbin.org/post", json={"key": "value"})
 print(r.json()["json"])
 
 # POST form data
-r = rupy.post("https://httpbin.org/post", data={"field": "hello"})
+r = pyureq.post("https://httpbin.org/post", data={"field": "hello"})
 print(r.json()["form"])
 
 # With timeout and headers
-r = rupy.get(
+r = pyureq.get(
     "https://httpbin.org/get",
     headers={"X-Custom": "header"},
     timeout=5,
@@ -51,11 +46,11 @@ r.raise_for_status()
 
 ### Alias as `requests`
 
-Existing code that imports `requests` can be pointed at `rupy` with a
+Existing code that imports `requests` can be pointed at `pyureq` with a
 one-line change:
 
 ```python
-import rupy as requests          # <- only change needed
+import pyureq as requests          # <- only change needed
 
 r = requests.get("https://example.com")
 print(r.text)
@@ -63,13 +58,13 @@ print(r.text)
 
 ## Sessions
 
-`rupy.Session` maps directly to `requests.Session` and shares the same
+`pyureq.Session` maps directly to `requests.Session` and shares the same
 connection pool across requests:
 
 ```python
-import rupy
+import pyureq
 
-with rupy.Session() as s:
+with pyureq.Session() as s:
     s.headers.update({"Authorization": "Bearer mytoken"})
     s.timeout = 10
 
@@ -83,15 +78,15 @@ with rupy.Session() as s:
 
 | Function | Description |
 |---|---|
-| `rupy.get(url, **kwargs)` | GET |
-| `rupy.post(url, data=None, json=None, **kwargs)` | POST |
-| `rupy.put(url, data=None, **kwargs)` | PUT |
-| `rupy.patch(url, data=None, **kwargs)` | PATCH |
-| `rupy.delete(url, **kwargs)` | DELETE |
-| `rupy.head(url, **kwargs)` | HEAD |
-| `rupy.options(url, **kwargs)` | OPTIONS |
-| `rupy.request(method, url, **kwargs)` | Any method |
-| `rupy.session()` | Create a `Session` |
+| `pyureq.get(url, **kwargs)` | GET |
+| `pyureq.post(url, data=None, json=None, **kwargs)` | POST |
+| `pyureq.put(url, data=None, **kwargs)` | PUT |
+| `pyureq.patch(url, data=None, **kwargs)` | PATCH |
+| `pyureq.delete(url, **kwargs)` | DELETE |
+| `pyureq.head(url, **kwargs)` | HEAD |
+| `pyureq.options(url, **kwargs)` | OPTIONS |
+| `pyureq.request(method, url, **kwargs)` | Any method |
+| `pyureq.session()` | Create a `Session` |
 
 ### Common keyword arguments
 
@@ -124,7 +119,7 @@ with rupy.Session() as s:
 
 ## Exceptions
 
-All exceptions live under `rupy.exceptions` and mirror the `requests`
+All exceptions live under `pyureq.exceptions` and mirror the `requests`
 exception hierarchy:
 
 ```
@@ -142,11 +137,11 @@ RequestException
 ```
 
 ```python
-import rupy
-from rupy.exceptions import Timeout, HTTPError
+import pyureq
+from pyureq.exceptions import Timeout, HTTPError
 
 try:
-    r = rupy.get("https://example.com", timeout=2)
+    r = pyureq.get("https://example.com", timeout=2)
     r.raise_for_status()
 except Timeout:
     print("Request timed out")
@@ -188,7 +183,7 @@ All benchmarks run against a local server to eliminate network jitter.
 Mean latency (ms) per request — lower is better.
 
 ```
-Scenario               rupy     requests   curl_cffi    httpx†
+Scenario             pyureq   requests   curl_cffi    httpx†
 ──────────────────────────────────────────────────────────────
 GET /get               1.58       2.59        2.46       2.39
 GET /get (params)      1.45       2.68        2.36       2.37
@@ -212,18 +207,18 @@ p99 latency is better; fewer errors is better.
 ```
 Mode        Library      req/s    p99 ms    errors
 ──────────────────────────────────────────────────
-stateless   rupy          268      7 242      26 / 5000  ← fewest errors
+stateless   pyureq         268      7 242      26 / 5000  ← fewest errors
             curl_cffi     226     10 039     457 / 5000
             requests      203     15 248     404 / 5000
 
-session     rupy          261      9 206      46 / 5000
+session     pyureq         261      9 206      46 / 5000
             curl_cffi     232     10 038     450 / 5000
             requests      244     10 015     327 / 5000
 ```
 
-At 1 000 threads rupy delivers **19 % more throughput** and **17× fewer
+At 1 000 threads pyureq delivers **19 % more throughput** and **17× fewer
 timeouts** than curl_cffi in stateless mode.  The advantage comes from lower
-Python-layer overhead per request: because rupy's response parsing happens
+Python-layer overhead per request: because pyureq's response parsing happens
 entirely in Rust, it holds the GIL for a shorter window (~0.3 ms vs ~0.8 ms),
 reducing GIL pile-up under heavy concurrency.
 
@@ -237,7 +232,7 @@ call.
 ```
 Library      GIL held per request (approx)
 ──────────────────────────────────────────
-rupy          ~0.3 ms   (parsing in Rust)
+pyureq        ~0.3 ms   (parsing in Rust)
 curl_cffi     ~0.8 ms   (CFFI + Python result handling)
 requests      ~1.2 ms   (urllib3 pure-Python stack)
 ```
@@ -258,7 +253,7 @@ python benchmarks/bench_gil.py      --iterations 200   # GIL behaviour
 Python call
     │
     ▼
-rupy Python layer   ← thin: arg normalisation, exception mapping
+pyureq Python layer   ← thin: arg normalisation, exception mapping
     │
     │  py.allow_threads()  ← GIL released here
     ▼
