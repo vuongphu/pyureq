@@ -68,7 +68,10 @@ impl RustClient {
     #[pyo3(signature = (verify=true, timeout=None, no_proxy_all=false))]
     fn new(verify: bool, timeout: Option<f64>, no_proxy_all: bool) -> PyResult<Self> {
         let _ = no_proxy_all; // ureq handles NO_PROXY automatically
-        Ok(RustClient { verify, default_timeout: timeout })
+        Ok(RustClient {
+            verify,
+            default_timeout: timeout,
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -135,7 +138,7 @@ fn http_request(
     no_proxy_all: bool,
 ) -> PyResult<RawResponse> {
     let _ = no_proxy_all; // ureq reads NO_PROXY from env automatically
-    // Clone/copy all borrowed data before releasing the GIL.
+                          // Clone/copy all borrowed data before releasing the GIL.
     let method = method.to_string();
     let url = url.to_string();
     let body_owned: Option<Vec<u8>> = body.map(|b| b.to_vec());
@@ -162,10 +165,15 @@ fn http_request(
 // ---------------------------------------------------------------------------
 
 fn url_with_params(base: &str, params: &Option<Vec<(String, String)>>) -> String {
-    let Some(p) = params else { return base.to_string() };
-    if p.is_empty() { return base.to_string(); }
+    let Some(p) = params else {
+        return base.to_string();
+    };
+    if p.is_empty() {
+        return base.to_string();
+    }
     let sep = if base.contains('?') { '&' } else { '?' };
-    let qs: Vec<String> = p.iter()
+    let qs: Vec<String> = p
+        .iter()
         .map(|(k, v)| format!("{}={}", pct(k), pct(v)))
         .collect();
     format!("{}{}{}", base, sep, qs.join("&"))
@@ -217,9 +225,7 @@ fn http_execute(
         // Only set connect and read timeouts. Setting timeout_write (SO_SNDTIMEO) is
         // intentionally skipped: on gVisor the syscall causes the kernel to delay all
         // TCP transmission until the timer fires, breaking every request.
-        agent_builder = agent_builder
-            .timeout_connect(dur)
-            .timeout_read(dur);
+        agent_builder = agent_builder.timeout_connect(dur).timeout_read(dur);
     }
 
     agent_builder = agent_builder.redirects(if allow_redirects { 30 } else { 0 });
@@ -237,7 +243,11 @@ fn http_execute(
     // Cookies
     if let Some(cks) = cookies {
         if !cks.is_empty() {
-            let s: String = cks.iter().map(|(k, v)| format!("{}={}", k, v)).collect::<Vec<_>>().join("; ");
+            let s: String = cks
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("; ");
             req = req.set("Cookie", &s);
         }
     }
@@ -295,7 +305,10 @@ fn http_execute(
         if let Some(val) = resp.header(&name) {
             headers_out
                 .entry(name.to_lowercase())
-                .and_modify(|e| { e.push_str(", "); e.push_str(val); })
+                .and_modify(|e| {
+                    e.push_str(", ");
+                    e.push_str(val);
+                })
                 .or_insert_with(|| val.to_string());
         }
     }
@@ -307,7 +320,8 @@ fn http_execute(
     });
 
     let mut body_bytes = Vec::new();
-    resp.into_reader().read_to_end(&mut body_bytes)
+    resp.into_reader()
+        .read_to_end(&mut body_bytes)
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     Ok(RawResponse {
