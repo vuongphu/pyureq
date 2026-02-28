@@ -29,9 +29,18 @@ def _normalize_headers(headers) -> dict:
     """Convert any header mapping to a plain ``{str: str}`` dict."""
     if headers is None:
         return {}
+
+    def _coerce(v) -> str:
+        # bytes/bytearray values must be decoded, not wrapped in str() which
+        # produces "b'...'" and corrupts headers like HMAC signatures.
+        # latin-1 matches the HTTP/1.1 header encoding used by requests.
+        if isinstance(v, (bytes, bytearray)):
+            return v.decode("latin-1")
+        return str(v)
+
     if isinstance(headers, CaseInsensitiveDict):
-        return {k: str(v) for k, v in headers.items()}
-    return {str(k): str(v) for k, v in dict(headers).items()}
+        return {k: _coerce(v) for k, v in headers.items()}
+    return {str(k): _coerce(v) for k, v in dict(headers).items()}
 
 
 def _normalize_params(params) -> list:
