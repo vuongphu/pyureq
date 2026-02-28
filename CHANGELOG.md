@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.2] — 2026-02-28
+
+### Fixed
+- Bytes header values are now decoded with latin-1 (matching `requests`
+  behaviour) instead of `str()`, which produced `"b'...'"` and caused HMAC
+  signature verification failures (`40009 sign signature error`) on APIs such
+  as Bitget.
+
+### Removed
+- `SessionPool` / `pool.py` — removed from the public API.
+
+[0.1.2]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.2
+
+---
+
 ## [0.1.0] — 2026-02-28
 
 ### Added

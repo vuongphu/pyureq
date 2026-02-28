@@ -1,6 +1,6 @@
 [package]
 name = "pyureq"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 description = "A requests-compatible HTTP library powered by Rust's ureq"
 
