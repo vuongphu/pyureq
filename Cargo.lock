@@ -574,6 +574,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pyureq"
+version = "0.1.3"
+dependencies = [
+ "base64",
+ "native-tls",
+ "pyo3",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -600,17 +611,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rupy"
-version = "0.1.0"
-dependencies = [
- "base64",
- "native-tls",
- "pyo3",
- "serde_json",
- "ureq",
 ]
 
 [[package]]
