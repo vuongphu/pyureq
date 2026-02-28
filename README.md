@@ -5,14 +5,19 @@ A `requests`-compatible Python HTTP library backed by Rust's
 `requests` — same API, lower overhead, no external runtime dependency.
 
 [![CI](https://github.com/vuongphu/rupy/actions/workflows/ci.yml/badge.svg)](https://github.com/vuongphu/rupy/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/rupy.svg)](https://pypi.org/project/rupy/)
-[![Python 3.9+](https://img.shields.io/pypi/pyversions/rupy.svg)](https://pypi.org/project/rupy/)
+[![PyPI](https://img.shields.io/pypi/v/pyureq.svg)](https://pypi.org/project/pyureq/)
+[![Python 3.9+](https://img.shields.io/pypi/pyversions/pyureq.svg)](https://pypi.org/project/pyureq/)
 
 ## Installation
 
 ```
-pip install rupy
+pip install pyureq
 ```
+
+> **Note:** The PyPI distribution is named `pyureq`; the import name is `rupy`.
+> ```python
+> import rupy          # after: pip install pyureq
+> ```
 
 Pre-built wheels are available for Linux, macOS, and Windows (Python 3.9+).
 The wheel bundles its own OpenSSL, so no system dependency is required.

@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "rupy"
+name = "pyureq"
 version = "0.1.0"
 description = "A requests-compatible HTTP library powered by Rust's ureq crate"
 requires-python = ">=3.9"
