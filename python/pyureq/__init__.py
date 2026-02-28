@@ -38,6 +38,7 @@ from .exceptions import (  # noqa: F401
 )
 from .models import Response  # noqa: F401
 from .sessions import Session  # noqa: F401
+from .pool import SessionPool  # noqa: F401
 from . import exceptions  # noqa: F401
 from . import _pyureq  # noqa: F401 (Rust extension)
 
