@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.4] — 2026-02-28
+
+### Added
+- Proxy support via the `proxies` parameter, matching the `requests` API:
+  `proxies={"http": "http://host:port", "https": "http://user:pass@host:port"}`.
+  HTTP, HTTPS, SOCKS4, SOCKS4A, SOCKS5, and SOCKS5H proxy URLs are all
+  accepted.  `Session.proxies` dict is also supported for session-wide defaults.
+
+[0.1.4]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.4
+
+---
+
 ## [0.1.3] — 2026-02-28
 
 ### Fixed
