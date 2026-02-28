@@ -1,5 +1,6 @@
 """Response model, matching the requests.Response API."""
 
+import http
 import json as _json
 from datetime import timedelta
 
@@ -105,9 +106,66 @@ class Response:
         except ImportError:
             return self.encoding
 
+    @property
+    def reason(self) -> str:
+        """Textual reason of the response, e.g. 'Not Found' for 404."""
+        try:
+            return http.HTTPStatus(self.status_code).phrase
+        except ValueError:
+            return ""
+
+    @property
+    def cookies(self) -> dict:
+        """Cookies sent back by the server, as a plain name→value dict.
+
+        Parses the ``Set-Cookie`` response header.  Only the name=value pair
+        is extracted; attributes such as ``Path``, ``HttpOnly``, and
+        ``Expires`` are ignored.
+        """
+        result = {}
+        cookie_header = self._headers.get("set-cookie", "")
+        if cookie_header:
+            for cookie in cookie_header.split(","):
+                first_part = cookie.split(";")[0].strip()
+                if "=" in first_part:
+                    name, _, value = first_part.partition("=")
+                    result[name.strip()] = value.strip()
+        return result
+
+    @property
+    def links(self) -> dict:
+        """Returns the parsed ``Link`` header(s) of the response.
+
+        The result is a dict keyed by the link's ``rel`` attribute (or the
+        URL itself if no ``rel`` is present), with each value being a dict
+        containing the ``url`` and any other link parameters.
+
+        Compatible with ``requests.Response.links``.
+        """
+        header = self._headers.get("link", "")
+        if not header:
+            return {}
+        result = {}
+        for part in header.split(","):
+            part = part.strip()
+            segments = part.split(";")
+            url = segments[0].strip().strip("<>")
+            link: dict = {"url": url}
+            for attr in segments[1:]:
+                attr = attr.strip()
+                if "=" in attr:
+                    key, _, val = attr.partition("=")
+                    link[key.strip()] = val.strip().strip('"')
+            rel = link.get("rel", url)
+            result[rel] = link
+        return result
+
     # ------------------------------------------------------------------
     # Methods
     # ------------------------------------------------------------------
+
+    def close(self):
+        """Release the connection.  No-op for rupy (Rust manages pooling)."""
 
     def json(self, **kwargs):
         """Return the json-encoded content of the response.

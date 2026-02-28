@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "rupy"
 version = "0.1.0"
-description = "A requests-compatible HTTP library powered by Rust's reqwest"
+description = "A requests-compatible HTTP library powered by Rust's ureq crate"
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",

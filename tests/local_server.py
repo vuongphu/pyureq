@@ -132,9 +132,38 @@ def delay_endpoint(secs):
     return jsonify({"delay": secs})
 
 
-@app.route("/anything", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.route("/anything", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 def anything_endpoint():
     return jsonify(_common_response())
+
+
+@app.route("/options", methods=["OPTIONS", "GET"])
+def options_endpoint():
+    from flask import Response as FlaskResponse
+    resp = FlaskResponse("", status=200)
+    resp.headers["Allow"] = "GET, POST, OPTIONS"
+    return resp
+
+
+@app.route("/cookies/set")
+def set_cookies_endpoint():
+    from flask import make_response
+    resp = make_response(jsonify({"cookies_set": True}))
+    resp.set_cookie("session_id", "abc123")
+    resp.set_cookie("token", "xyz789")
+    return resp
+
+
+@app.route("/response-headers")
+def response_headers_endpoint():
+    """Return a response with custom headers specified in query params."""
+    from flask import Response as FlaskResponse
+    headers = dict(request.args)
+    body = json.dumps(headers)
+    resp = FlaskResponse(body, content_type="application/json")
+    for k, v in headers.items():
+        resp.headers[k] = v
+    return resp
 
 
 # ---------------------------------------------------------------------------
