@@ -96,7 +96,7 @@ class TestPost:
 
 class TestHeaders:
     def test_custom_header_sent(self):
-        r = pyureq.get(f"{BASE}/headers", headers={"X-Test-Header": "rupy"})
+        r = pyureq.get(f"{BASE}/headers", headers={"X-Test-Header": "pyureq"})
         assert r.status_code == 200
         received = {k.lower(): v for k, v in r.json()["headers"].items()}
         assert received.get("x-test-header") == "pyureq"
