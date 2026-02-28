@@ -101,6 +101,7 @@ with pyureq.Session() as s:
 | `timeout` | `float` | Seconds before timing out |
 | `allow_redirects` | `bool` | Follow redirects (default `True`) |
 | `verify` | `bool` | Verify TLS certificate (default `True`) |
+| `proxies` | `dict` | Proxy URLs keyed by scheme — see [Proxies](#proxies) |
 
 ### `Response` attributes and methods
 
@@ -116,6 +117,51 @@ with pyureq.Session() as s:
 | `.elapsed` | `datetime.timedelta` of round-trip time |
 | `.json(**kwargs)` | Parse body as JSON |
 | `.raise_for_status()` | Raise `HTTPError` on 4xx/5xx |
+
+## Proxies
+
+Pass a `proxies` dict keyed by URL scheme, exactly as you would with `requests`:
+
+```python
+PROXIES = {
+    "http":  "http://proxy.example.com:8080",
+    "https": "http://user:pass@proxy.example.com:8080",
+}
+
+r = pyureq.get("https://api.example.com", proxies=PROXIES)
+```
+
+SOCKS proxies are supported too:
+
+```python
+PROXIES = {
+    "http":  "socks5://proxy.example.com:1080",
+    "https": "socks5://proxy.example.com:1080",
+}
+```
+
+Use `"all"` as a catch-all key (same as `requests`):
+
+```python
+pyureq.get(url, proxies={"all": "http://proxy:8080"})
+```
+
+Set proxies session-wide via `Session.proxies`; per-request `proxies=`
+overrides individual schemes:
+
+```python
+with pyureq.Session() as s:
+    s.proxies = {"https": "http://proxy:8080"}
+    s.get("https://api.example.com")                       # uses proxy
+    s.get("https://api.example.com", proxies={"https": ""})  # bypass proxy
+```
+
+Pass an empty dict or empty-string values to disable system proxies
+(`HTTP_PROXY` / `HTTPS_PROXY` env vars):
+
+```python
+pyureq.get(url, proxies={"http": "", "https": ""})   # no proxy
+```
 
 ## Exceptions
 

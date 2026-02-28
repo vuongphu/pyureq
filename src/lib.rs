@@ -75,7 +75,7 @@ impl RustClient {
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, allow_redirects=true, cookies=None))]
+    #[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, allow_redirects=true, cookies=None, proxy=None))]
     fn request(
         &self,
         py: Python<'_>,
@@ -89,6 +89,7 @@ impl RustClient {
         timeout: Option<f64>,
         allow_redirects: bool,
         cookies: Option<HashMap<String, String>>,
+        proxy: Option<String>,
     ) -> PyResult<RawResponse> {
         let effective_timeout = timeout.or(self.default_timeout);
         // Clone/copy all data needed before releasing the GIL.
@@ -110,6 +111,7 @@ impl RustClient {
                 verify,
                 allow_redirects,
                 cookies,
+                proxy.as_deref(),
             )
         })
     }
@@ -121,7 +123,7 @@ impl RustClient {
 
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
-#[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, verify=true, allow_redirects=true, cookies=None, no_proxy_all=false))]
+#[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, verify=true, allow_redirects=true, cookies=None, no_proxy_all=false, proxy=None))]
 fn http_request(
     py: Python<'_>,
     method: &str,
@@ -136,6 +138,7 @@ fn http_request(
     allow_redirects: bool,
     cookies: Option<HashMap<String, String>>,
     no_proxy_all: bool,
+    proxy: Option<String>,
 ) -> PyResult<RawResponse> {
     let _ = no_proxy_all; // ureq reads NO_PROXY from env automatically
                           // Clone/copy all borrowed data before releasing the GIL.
@@ -156,6 +159,7 @@ fn http_request(
             verify,
             allow_redirects,
             cookies,
+            proxy.as_deref(),
         )
     })
 }
@@ -205,6 +209,7 @@ fn http_execute(
     verify: bool,
     allow_redirects: bool,
     cookies: Option<HashMap<String, String>>,
+    proxy: Option<&str>,
 ) -> PyResult<RawResponse> {
     let full_url = url_with_params(url, &params);
 
@@ -226,6 +231,12 @@ fn http_execute(
         // intentionally skipped: on gVisor the syscall causes the kernel to delay all
         // TCP transmission until the timer fires, breaking every request.
         agent_builder = agent_builder.timeout_connect(dur).timeout_read(dur);
+    }
+
+    if let Some(p) = proxy {
+        let proxy_obj = ureq::Proxy::new(p)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        agent_builder = agent_builder.proxy(proxy_obj);
     }
 
     agent_builder = agent_builder.redirects(if allow_redirects { 30 } else { 0 });

@@ -18,8 +18,8 @@ from .structures import CaseInsensitiveDict
 _builtin_ConnectionError = builtins.ConnectionError
 
 _DEFAULT_HEADERS = {
-    "User-Agent": "pyureq/0.1.0",
-    "Accept-Encoding": "gzip, deflate, br",
+    "User-Agent": "pyureq/0.1.4",
+    "Accept-Encoding": "gzip, deflate",
     "Accept": "*/*",
     "Connection": "keep-alive",
 }
@@ -29,9 +29,18 @@ def _normalize_headers(headers) -> dict:
     """Convert any header mapping to a plain ``{str: str}`` dict."""
     if headers is None:
         return {}
+
+    def _coerce(v) -> str:
+        # bytes/bytearray values must be decoded, not wrapped in str() which
+        # produces "b'...'" and corrupts headers like HMAC signatures.
+        # latin-1 matches the HTTP/1.1 header encoding used by requests.
+        if isinstance(v, (bytes, bytearray)):
+            return v.decode("latin-1")
+        return str(v)
+
     if isinstance(headers, CaseInsensitiveDict):
-        return {k: str(v) for k, v in headers.items()}
-    return {str(k): str(v) for k, v in dict(headers).items()}
+        return {k: _coerce(v) for k, v in headers.items()}
+    return {str(k): _coerce(v) for k, v in dict(headers).items()}
 
 
 def _normalize_params(params) -> list:
@@ -48,6 +57,20 @@ def _normalize_cookies(cookies) -> dict:
     if cookies is None:
         return {}
     return {str(k): str(v) for k, v in dict(cookies).items()}
+
+
+def _get_proxy_url(proxies, url):
+    """Pick the right proxy URL from a requests-style proxies dict.
+
+    Matches on URL scheme first (``"https"``, ``"http"``), then falls back
+    to the ``"all"`` key, mirroring requests behaviour.
+    Returns ``None`` if no matching proxy is found or the value is empty.
+    """
+    if not proxies:
+        return None
+    scheme = url.split("://")[0].lower() if "://" in url else "http"
+    proxy = proxies.get(scheme) or proxies.get("all")
+    return proxy if proxy else None
 
 
 def _prepare_body(data=None, json=None):
@@ -78,6 +101,7 @@ def _dispatch(client_or_none, method, url, **kwargs):
     # proxies={} or proxies={"http": "", "https": ""} → disable all system proxies
     proxies = kwargs.get("proxies")
     no_proxy_all = isinstance(proxies, dict) and all(v == "" for v in proxies.values())
+    proxy_url = _get_proxy_url(proxies, url) if not no_proxy_all else None
 
     body_bytes, content_type = _prepare_body(data, json)
 
@@ -101,6 +125,7 @@ def _dispatch(client_or_none, method, url, **kwargs):
                 timeout=timeout_f,
                 allow_redirects=allow_redirects,
                 cookies=cookies_dict,
+                proxy=proxy_url,
             )
         else:
             # Stateless path — create a one-shot client
@@ -117,6 +142,7 @@ def _dispatch(client_or_none, method, url, **kwargs):
                 allow_redirects=allow_redirects,
                 cookies=cookies_dict,
                 no_proxy_all=no_proxy_all,
+                proxy=proxy_url,
             )
     except builtins.TimeoutError as exc:
         raise Timeout(str(exc)) from exc
@@ -150,6 +176,7 @@ class Session:
         self.headers = CaseInsensitiveDict(_DEFAULT_HEADERS.copy())
         self.auth = None
         self.cookies: dict = {}
+        self.proxies: dict = {}
         self._verify = True
         self.params: dict = {}
         self.timeout = None
@@ -191,6 +218,8 @@ class Session:
         merged["allow_redirects"] = kwargs.get("allow_redirects", self.allow_redirects)
         merged["data"] = kwargs.get("data")
         merged["json"] = kwargs.get("json")
+        # Proxies: session defaults + per-request overrides (per-scheme)
+        merged["proxies"] = {**self.proxies, **(kwargs.get("proxies") or {})} or None
         return merged
 
     # ------------------------------------------------------------------

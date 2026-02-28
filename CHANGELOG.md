@@ -5,6 +5,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.4] — 2026-02-28
+
+### Added
+- Proxy support via the `proxies` parameter, matching the `requests` API:
+  `proxies={"http": "http://host:port", "https": "http://user:pass@host:port"}`.
+  HTTP, HTTPS, SOCKS4, SOCKS4A, SOCKS5, and SOCKS5H proxy URLs are all
+  accepted.  `Session.proxies` dict is also supported for session-wide defaults.
+
+[0.1.4]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.4
+
+---
+
+## [0.1.3] — 2026-02-28
+
+### Fixed
+- Remove `br` from the default `Accept-Encoding` session header.  pyureq was
+  advertising brotli support it could not fulfil, causing servers to return
+  brotli-compressed bodies that the Rust backend cannot decompress.  The raw
+  bytes then raised `UnicodeDecodeError` when callers accessed `.text` or
+  `.json()`.
+
+[0.1.3]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.3
+
+---
+
+## [0.1.2] — 2026-02-28
+
+### Fixed
+- Bytes header values are now decoded with latin-1 (matching `requests`
+  behaviour) instead of `str()`, which produced `"b'...'"` and caused HMAC
+  signature verification failures (`40009 sign signature error`) on APIs such
+  as Bitget.
+
+### Removed
+- `SessionPool` / `pool.py` — removed from the public API.
+
+[0.1.2]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.2
+
+---
+
 ## [0.1.0] — 2026-02-28
 
 ### Added
