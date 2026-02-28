@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.3] — 2026-02-28
+
+### Fixed
+- Remove `br` from the default `Accept-Encoding` session header.  pyureq was
+  advertising brotli support it could not fulfil, causing servers to return
+  brotli-compressed bodies that the Rust backend cannot decompress.  The raw
+  bytes then raised `UnicodeDecodeError` when callers accessed `.text` or
+  `.json()`.
+
+[0.1.3]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.3
+
+---
+
 ## [0.1.2] — 2026-02-28
 
 ### Fixed

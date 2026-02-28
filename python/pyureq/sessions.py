@@ -18,8 +18,8 @@ from .structures import CaseInsensitiveDict
 _builtin_ConnectionError = builtins.ConnectionError
 
 _DEFAULT_HEADERS = {
-    "User-Agent": "pyureq/0.1.2",
-    "Accept-Encoding": "gzip, deflate, br",
+    "User-Agent": "pyureq/0.1.3",
+    "Accept-Encoding": "gzip, deflate",
     "Accept": "*/*",
     "Connection": "keep-alive",
 }
