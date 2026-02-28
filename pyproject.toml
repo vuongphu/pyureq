@@ -6,6 +6,7 @@ build-backend = "maturin"
 name = "pyureq"
 version = "0.1.0"
 description = "A requests-compatible HTTP library powered by Rust's ureq crate"
+readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
