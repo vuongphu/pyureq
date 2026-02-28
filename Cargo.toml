@@ -9,7 +9,7 @@ name = "_rupy"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39", "generate-import-lib"] }
 # ureq is a true blocking HTTP client — no tokio, no async runtime.
 ureq = { version = "2", features = ["json", "native-tls"] }
 native-tls = "0.2"

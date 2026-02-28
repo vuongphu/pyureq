@@ -68,12 +68,17 @@ impl RustClient {
     #[pyo3(signature = (verify=true, timeout=None, no_proxy_all=false))]
     fn new(verify: bool, timeout: Option<f64>, no_proxy_all: bool) -> PyResult<Self> {
         let _ = no_proxy_all; // ureq handles NO_PROXY automatically
-        Ok(RustClient { verify, default_timeout: timeout })
+        Ok(RustClient {
+            verify,
+            default_timeout: timeout,
+        })
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, allow_redirects=true, cookies=None))]
     fn request(
         &self,
+        py: Python<'_>,
         method: &str,
         url: &str,
         headers: Option<HashMap<String, String>>,
@@ -86,19 +91,27 @@ impl RustClient {
         cookies: Option<HashMap<String, String>>,
     ) -> PyResult<RawResponse> {
         let effective_timeout = timeout.or(self.default_timeout);
-        http_execute(
-            method,
-            url,
-            headers,
-            params,
-            body,
-            content_type,
-            auth,
-            effective_timeout,
-            self.verify,
-            allow_redirects,
-            cookies,
-        )
+        // Clone/copy all data needed before releasing the GIL.
+        let method = method.to_string();
+        let url = url.to_string();
+        let body_owned: Option<Vec<u8>> = body.map(|b| b.to_vec());
+        let content_type = content_type.map(|s| s.to_string());
+        let verify = self.verify;
+        py.allow_threads(|| {
+            http_execute(
+                &method,
+                &url,
+                headers,
+                params,
+                body_owned.as_deref(),
+                content_type.as_deref(),
+                auth,
+                effective_timeout,
+                verify,
+                allow_redirects,
+                cookies,
+            )
+        })
     }
 }
 
@@ -107,8 +120,10 @@ impl RustClient {
 // ---------------------------------------------------------------------------
 
 #[pyfunction]
+#[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, verify=true, allow_redirects=true, cookies=None, no_proxy_all=false))]
 fn http_request(
+    py: Python<'_>,
     method: &str,
     url: &str,
     headers: Option<HashMap<String, String>>,
@@ -123,19 +138,26 @@ fn http_request(
     no_proxy_all: bool,
 ) -> PyResult<RawResponse> {
     let _ = no_proxy_all; // ureq reads NO_PROXY from env automatically
-    http_execute(
-        method,
-        url,
-        headers,
-        params,
-        body,
-        content_type,
-        auth,
-        timeout,
-        verify,
-        allow_redirects,
-        cookies,
-    )
+                          // Clone/copy all borrowed data before releasing the GIL.
+    let method = method.to_string();
+    let url = url.to_string();
+    let body_owned: Option<Vec<u8>> = body.map(|b| b.to_vec());
+    let content_type = content_type.map(|s| s.to_string());
+    py.allow_threads(|| {
+        http_execute(
+            &method,
+            &url,
+            headers,
+            params,
+            body_owned.as_deref(),
+            content_type.as_deref(),
+            auth,
+            timeout,
+            verify,
+            allow_redirects,
+            cookies,
+        )
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -143,10 +165,15 @@ fn http_request(
 // ---------------------------------------------------------------------------
 
 fn url_with_params(base: &str, params: &Option<Vec<(String, String)>>) -> String {
-    let Some(p) = params else { return base.to_string() };
-    if p.is_empty() { return base.to_string(); }
+    let Some(p) = params else {
+        return base.to_string();
+    };
+    if p.is_empty() {
+        return base.to_string();
+    }
     let sep = if base.contains('?') { '&' } else { '?' };
-    let qs: Vec<String> = p.iter()
+    let qs: Vec<String> = p
+        .iter()
         .map(|(k, v)| format!("{}={}", pct(k), pct(v)))
         .collect();
     format!("{}{}{}", base, sep, qs.join("&"))
@@ -165,6 +192,7 @@ fn pct(s: &str) -> String {
     out
 }
 
+#[allow(clippy::too_many_arguments)]
 fn http_execute(
     method: &str,
     url: &str,
@@ -194,10 +222,10 @@ fn http_execute(
 
     if let Some(t) = timeout {
         let dur = Duration::from_secs_f64(t);
-        agent_builder = agent_builder
-            .timeout_connect(dur)
-            .timeout_read(dur)
-            .timeout_write(dur);
+        // Only set connect and read timeouts. Setting timeout_write (SO_SNDTIMEO) is
+        // intentionally skipped: on gVisor the syscall causes the kernel to delay all
+        // TCP transmission until the timer fires, breaking every request.
+        agent_builder = agent_builder.timeout_connect(dur).timeout_read(dur);
     }
 
     agent_builder = agent_builder.redirects(if allow_redirects { 30 } else { 0 });
@@ -215,7 +243,11 @@ fn http_execute(
     // Cookies
     if let Some(cks) = cookies {
         if !cks.is_empty() {
-            let s: String = cks.iter().map(|(k, v)| format!("{}={}", k, v)).collect::<Vec<_>>().join("; ");
+            let s: String = cks
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("; ");
             req = req.set("Cookie", &s);
         }
     }
@@ -273,7 +305,10 @@ fn http_execute(
         if let Some(val) = resp.header(&name) {
             headers_out
                 .entry(name.to_lowercase())
-                .and_modify(|e| { e.push_str(", "); e.push_str(val); })
+                .and_modify(|e| {
+                    e.push_str(", ");
+                    e.push_str(val);
+                })
                 .or_insert_with(|| val.to_string());
         }
     }
@@ -285,7 +320,8 @@ fn http_execute(
     });
 
     let mut body_bytes = Vec::new();
-    resp.into_reader().read_to_end(&mut body_bytes)
+    resp.into_reader()
+        .read_to_end(&mut body_bytes)
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     Ok(RawResponse {

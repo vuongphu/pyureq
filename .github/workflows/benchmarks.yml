@@ -1,0 +1,89 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: "Iterations per scenario (bench.py and bench_gil.py)"
+        default: "200"
+        required: false
+      thread_requests:
+        description: "Requests per thread (bench_threads.py)"
+        default: "10"
+        required: false
+
+jobs:
+  benchmark:
+    name: Benchmark (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    # Force UTF-8 I/O on all platforms so Unicode box-drawing characters in
+    # benchmark output don't crash on Windows' default cp1252 console encoding.
+    env:
+      PYTHONUTF8: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build rupy wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist
+
+      - name: Install rupy
+        run: pip install dist/*.whl
+
+      - name: Install benchmark dependencies
+        run: pip install requests httpx curl_cffi flask
+
+      - name: Create results directory
+        run: mkdir -p results
+
+      - name: Run latency benchmark (bench.py)
+        run: |
+          python benchmarks/bench.py \
+            --iterations ${{ github.event.inputs.iterations || '50' }} \
+            --warmup 3 \
+            --json results/bench_latency.json \
+          | tee results/bench_latency.txt
+
+      - name: Run GIL benchmark (bench_gil.py)
+        run: |
+          python benchmarks/bench_gil.py \
+            --iterations ${{ github.event.inputs.iterations || '30' }} \
+          | tee results/bench_gil.txt
+
+      - name: Run concurrency benchmark (bench_threads.py)
+        run: |
+          python benchmarks/bench_threads.py \
+            --threads 100 \
+            --requests ${{ github.event.inputs.thread_requests || '3' }} \
+          | tee results/bench_threads.txt
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ matrix.os }}-${{ github.sha }}
+          path: results/
+          retention-days: 90

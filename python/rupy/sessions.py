@@ -150,13 +150,23 @@ class Session:
         self.headers = CaseInsensitiveDict(_DEFAULT_HEADERS.copy())
         self.auth = None
         self.cookies: dict = {}
-        self.verify = True
+        self._verify = True
         self.params: dict = {}
         self.timeout = None
         self.allow_redirects = True
 
         # Persistent Rust client — connection pool lives here
         self._client = _rupy.RustClient(verify=True)
+
+    @property
+    def verify(self) -> bool:
+        """Whether to verify TLS certificates.  Changing this recreates the connection pool."""
+        return self._verify
+
+    @verify.setter
+    def verify(self, value: bool):
+        self._verify = bool(value)
+        self._client = _rupy.RustClient(verify=self._verify)
 
     # ------------------------------------------------------------------
     # Internal helpers
