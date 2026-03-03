@@ -14,7 +14,7 @@ A `requests`-compatible Python HTTP library backed by Rust's
 pip install pyureq
 ```
 
-Pre-built wheels are available for Linux, macOS, and Windows (Python 3.9+).
+Pre-built wheels are available for Linux, macOS, and Windows (Python 3.9–3.14).
 The wheel bundles its own OpenSSL, so no system dependency is required.
 
 ## Quick start
