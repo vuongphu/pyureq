@@ -7,6 +7,7 @@ A `requests`-compatible Python HTTP library backed by Rust's
 [![CI](https://github.com/vuongphu/pyureq/actions/workflows/ci.yml/badge.svg)](https://github.com/vuongphu/pyureq/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/pyureq.svg)](https://pypi.org/project/pyureq/)
 [![Python 3.9+](https://img.shields.io/pypi/pyversions/pyureq.svg)](https://pypi.org/project/pyureq/)
+[![Downloads](https://static.pepy.tech/personalized-badge/pyureq?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/pyureq)
 
 ## Installation
 
