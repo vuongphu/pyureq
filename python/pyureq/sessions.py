@@ -18,7 +18,7 @@ from .structures import CaseInsensitiveDict
 _builtin_ConnectionError = builtins.ConnectionError
 
 _DEFAULT_HEADERS = {
-    "User-Agent": "pyureq/0.1.4",
+    "User-Agent": "pyureq/0.1.5",
     "Accept-Encoding": "gzip, deflate",
     "Accept": "*/*",
     "Connection": "keep-alive",
@@ -129,6 +129,7 @@ def _dispatch(client_or_none, method, url, **kwargs):
             )
         else:
             # Stateless path — create a one-shot client
+            # verify may be True/False (bool) or a path string to a CA bundle
             raw = _pyureq.http_request(
                 method=method,
                 url=url,
@@ -138,7 +139,7 @@ def _dispatch(client_or_none, method, url, **kwargs):
                 content_type=content_type,
                 auth=auth_tuple,
                 timeout=timeout_f,
-                verify=bool(verify),
+                verify=verify,
                 allow_redirects=allow_redirects,
                 cookies=cookies_dict,
                 no_proxy_all=no_proxy_all,
@@ -186,13 +187,20 @@ class Session:
         self._client = _pyureq.RustClient(verify=True)
 
     @property
-    def verify(self) -> bool:
-        """Whether to verify TLS certificates.  Changing this recreates the connection pool."""
+    def verify(self):
+        """TLS verification setting.
+
+        Accepts the same values as ``requests``:
+        - ``True``  – verify using the OS / system CA store (default)
+        - ``False`` – skip certificate verification entirely
+        - ``"/path/to/ca-bundle.pem"`` – verify using the supplied PEM file
+        Changing this recreates the connection pool.
+        """
         return self._verify
 
     @verify.setter
-    def verify(self, value: bool):
-        self._verify = bool(value)
+    def verify(self, value):
+        self._verify = value
         self._client = _pyureq.RustClient(verify=self._verify)
 
     # ------------------------------------------------------------------

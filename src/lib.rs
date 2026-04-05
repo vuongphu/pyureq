@@ -6,6 +6,41 @@ use std::io::Read;
 use std::time::{Duration, Instant};
 
 // ---------------------------------------------------------------------------
+// VerifyMode — mirrors requests' `verify` parameter semantics
+//
+//   verify=True   → use system / OS trust store (default)
+//   verify=False  → skip certificate verification entirely (dangerous)
+//   verify="/path/to/ca-bundle.pem" → use the supplied PEM file as the CA
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+enum VerifyMode {
+    /// Verify using the OS / system trust store.
+    System,
+    /// Skip all certificate verification.
+    None,
+    /// Verify using the given PEM CA-bundle file.
+    CaBundle(String),
+}
+
+impl VerifyMode {
+    /// Convert a Python value (bool or str/Path) into a `VerifyMode`.
+    fn from_pyany(obj: &pyo3::Bound<'_, pyo3::PyAny>) -> PyResult<Self> {
+        // Try bool first (True / False)
+        if let Ok(b) = obj.extract::<bool>() {
+            return Ok(if b { VerifyMode::System } else { VerifyMode::None });
+        }
+        // Try string / os.PathLike
+        if let Ok(s) = obj.extract::<String>() {
+            return Ok(VerifyMode::CaBundle(s));
+        }
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "verify must be a bool or a path string to a CA bundle",
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // RawResponse
 // ---------------------------------------------------------------------------
 
@@ -58,18 +93,26 @@ impl RawResponse {
 
 #[pyclass(module = "pyureq._pyureq")]
 pub struct RustClient {
-    verify: bool,
+    /// `verify` semantics (mirrors requests):
+    ///   - `true`  → verify using system/default CA store
+    ///   - `false` → skip certificate verification entirely
+    ///   - path string → load that PEM file as the CA bundle
+    verify: VerifyMode,
     default_timeout: Option<f64>,
 }
 
 #[pymethods]
 impl RustClient {
     #[new]
-    #[pyo3(signature = (verify=true, timeout=None, no_proxy_all=false))]
-    fn new(verify: bool, timeout: Option<f64>, no_proxy_all: bool) -> PyResult<Self> {
+    #[pyo3(signature = (verify=None, timeout=None, no_proxy_all=false))]
+    fn new(verify: Option<&pyo3::Bound<'_, pyo3::PyAny>>, timeout: Option<f64>, no_proxy_all: bool) -> PyResult<Self> {
         let _ = no_proxy_all; // ureq handles NO_PROXY automatically
+        let verify_mode = match verify {
+            Some(v) => VerifyMode::from_pyany(v)?,
+            None => VerifyMode::System,
+        };
         Ok(RustClient {
-            verify,
+            verify: verify_mode,
             default_timeout: timeout,
         })
     }
@@ -97,7 +140,7 @@ impl RustClient {
         let url = url.to_string();
         let body_owned: Option<Vec<u8>> = body.map(|b| b.to_vec());
         let content_type = content_type.map(|s| s.to_string());
-        let verify = self.verify;
+        let verify = self.verify.clone();
         py.allow_threads(|| {
             http_execute(
                 &method,
@@ -108,7 +151,7 @@ impl RustClient {
                 content_type.as_deref(),
                 auth,
                 effective_timeout,
-                verify,
+                &verify,
                 allow_redirects,
                 cookies,
                 proxy.as_deref(),
@@ -123,7 +166,7 @@ impl RustClient {
 
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
-#[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, verify=true, allow_redirects=true, cookies=None, no_proxy_all=false, proxy=None))]
+#[pyo3(signature = (method, url, headers=None, params=None, body=None, content_type=None, auth=None, timeout=None, verify=None, allow_redirects=true, cookies=None, no_proxy_all=false, proxy=None))]
 fn http_request(
     py: Python<'_>,
     method: &str,
@@ -134,14 +177,18 @@ fn http_request(
     content_type: Option<&str>,
     auth: Option<(String, String)>,
     timeout: Option<f64>,
-    verify: bool,
+    verify: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
     allow_redirects: bool,
     cookies: Option<HashMap<String, String>>,
     no_proxy_all: bool,
     proxy: Option<String>,
 ) -> PyResult<RawResponse> {
     let _ = no_proxy_all; // ureq reads NO_PROXY from env automatically
-                          // Clone/copy all borrowed data before releasing the GIL.
+    let verify_mode = match verify {
+        Some(v) => VerifyMode::from_pyany(v)?,
+        None => VerifyMode::System,
+    };
+    // Clone/copy all borrowed data before releasing the GIL.
     let method = method.to_string();
     let url = url.to_string();
     let body_owned: Option<Vec<u8>> = body.map(|b| b.to_vec());
@@ -156,12 +203,60 @@ fn http_request(
             content_type.as_deref(),
             auth,
             timeout,
-            verify,
+            &verify_mode,
             allow_redirects,
             cookies,
             proxy.as_deref(),
         )
     })
+}
+
+// ---------------------------------------------------------------------------
+// Build a TlsConnector from a VerifyMode
+// ---------------------------------------------------------------------------
+
+fn build_tls_connector(verify: &VerifyMode) -> PyResult<native_tls::TlsConnector> {
+    match verify {
+        VerifyMode::None => {
+            // Disable all cert + hostname checks.
+            native_tls::TlsConnector::builder()
+                .danger_accept_invalid_certs(true)
+                .danger_accept_invalid_hostnames(true)
+                .build()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
+        }
+        VerifyMode::System => {
+            // Explicitly build with the OS trust store.
+            // On Windows this uses the Windows certificate store (CryptoAPI/Schannel).
+            // On macOS it uses the Security framework.
+            // On Linux it uses OpenSSL which probes the standard system CA paths
+            // (/etc/ssl/certs, /etc/pki/tls/certs, etc.).
+            native_tls::TlsConnector::builder()
+                .build()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(
+                    format!("TLS init failed (system CA store): {}", e)
+                ))
+        }
+        VerifyMode::CaBundle(path) => {
+            // Load the PEM file supplied by the caller (same as requests' verify="/path")
+            let pem_bytes = std::fs::read(path).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Cannot read CA bundle '{}': {}",
+                    path, e
+                ))
+            })?;
+            let cert = native_tls::Certificate::from_pem(&pem_bytes).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Invalid CA bundle '{}': {}",
+                    path, e
+                ))
+            })?;
+            native_tls::TlsConnector::builder()
+                .add_root_certificate(cert)
+                .build()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -206,24 +301,19 @@ fn http_execute(
     content_type: Option<&str>,
     auth: Option<(String, String)>,
     timeout: Option<f64>,
-    verify: bool,
+    verify: &VerifyMode,
     allow_redirects: bool,
     cookies: Option<HashMap<String, String>>,
     proxy: Option<&str>,
 ) -> PyResult<RawResponse> {
     let full_url = url_with_params(url, &params);
 
-    // Build agent
+    // Build agent — always set an explicit TlsConnector so native-tls
+    // properly loads the trust store on every platform.
     let mut agent_builder = ureq::AgentBuilder::new();
 
-    if !verify {
-        let tls = native_tls::TlsConnector::builder()
-            .danger_accept_invalid_certs(true)
-            .danger_accept_invalid_hostnames(true)
-            .build()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        agent_builder = agent_builder.tls_connector(std::sync::Arc::new(tls));
-    }
+    let tls = build_tls_connector(verify)?;
+    agent_builder = agent_builder.tls_connector(std::sync::Arc::new(tls));
 
     if let Some(t) = timeout {
         let dur = Duration::from_secs_f64(t);

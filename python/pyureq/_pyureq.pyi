@@ -5,7 +5,7 @@ the compiled Rust extension.  They mirror the PyO3 #[pyclass] and #[pymethods]
 definitions in src/lib.rs.
 """
 
-from typing import Optional
+from typing import Optional, Union
 
 class RawResponse:
     """Raw HTTP response returned directly from the Rust core.
@@ -42,12 +42,16 @@ class RustClient:
     underlying ``ureq`` agent keeps connections alive for efficiency.
     """
 
-    def __init__(self, verify: bool = True) -> None:
+    def __init__(self, verify: Union[bool, str] = True) -> None:
         """
         Parameters
         ----------
         verify:
-            Whether to verify TLS certificates.  Defaults to ``True``.
+            TLS verification mode.  Mirrors ``requests`` semantics:
+
+            - ``True``  (default) – verify using the OS / system CA store
+            - ``False`` – skip all certificate verification (insecure)
+            - ``"/path/to/ca-bundle.pem"`` – verify using the given PEM file
         """
 
     def request(
@@ -116,7 +120,7 @@ def http_request(
     content_type: Optional[str] = None,
     auth: Optional[tuple[str, str]] = None,
     timeout: Optional[float] = None,
-    verify: bool = True,
+    verify: Union[bool, str] = True,
     allow_redirects: bool = True,
     cookies: Optional[dict[str, str]] = None,
     no_proxy_all: bool = False,
@@ -146,7 +150,9 @@ def http_request(
     timeout:
         Total timeout in seconds.
     verify:
-        Verify TLS certificates (default ``True``).
+        TLS verification mode — ``True`` (system CA store), ``False``
+        (skip verification), or a path string to a PEM CA bundle file.
+        Defaults to ``True``.
     allow_redirects:
         Follow 3xx redirects (default ``True``).
     cookies:

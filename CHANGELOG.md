@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.5] — 2026-04-05
+
+### Fixed
+- **TLS `UnknownIssuer` error on some HTTPS domains** — The `native-tls`
+  backend (via `schannel 0.1.28` on Windows) changed how it initialises the
+  TLS connector, causing certificate chain validation to fail for domains whose
+  intermediate CA had not previously been cached by Windows.  The fix is to
+  always construct an explicit `TlsConnector` (even when `verify=True`) so that
+  the OS trust store is properly loaded on every platform (Windows CryptoAPI,
+  macOS Security framework, Linux OpenSSL).
+
+### Added
+- `verify` now accepts a **path string** to a PEM CA-bundle file, matching
+  `requests` semantics:
+  - `verify=True` (default) — system / OS CA store
+  - `verify=False` — skip all certificate verification
+  - `verify="/path/to/ca-bundle.pem"` — use the supplied PEM file
+
+[0.1.5]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.5
+
+---
+
 ## [0.1.4] — 2026-02-28
 
 ### Added
