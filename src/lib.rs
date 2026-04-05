@@ -28,7 +28,11 @@ impl VerifyMode {
     fn from_pyany(obj: &pyo3::Bound<'_, pyo3::PyAny>) -> PyResult<Self> {
         // Try bool first (True / False)
         if let Ok(b) = obj.extract::<bool>() {
-            return Ok(if b { VerifyMode::System } else { VerifyMode::None });
+            return Ok(if b {
+                VerifyMode::System
+            } else {
+                VerifyMode::None
+            });
         }
         // Try string / os.PathLike
         if let Ok(s) = obj.extract::<String>() {
@@ -105,7 +109,11 @@ pub struct RustClient {
 impl RustClient {
     #[new]
     #[pyo3(signature = (verify=None, timeout=None, no_proxy_all=false))]
-    fn new(verify: Option<&pyo3::Bound<'_, pyo3::PyAny>>, timeout: Option<f64>, no_proxy_all: bool) -> PyResult<Self> {
+    fn new(
+        verify: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
+        timeout: Option<f64>,
+        no_proxy_all: bool,
+    ) -> PyResult<Self> {
         let _ = no_proxy_all; // ureq handles NO_PROXY automatically
         let verify_mode = match verify {
             Some(v) => VerifyMode::from_pyany(v)?,
@@ -231,11 +239,12 @@ fn build_tls_connector(verify: &VerifyMode) -> PyResult<native_tls::TlsConnector
             // On macOS it uses the Security framework.
             // On Linux it uses OpenSSL which probes the standard system CA paths
             // (/etc/ssl/certs, /etc/pki/tls/certs, etc.).
-            native_tls::TlsConnector::builder()
-                .build()
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(
-                    format!("TLS init failed (system CA store): {}", e)
+            native_tls::TlsConnector::builder().build().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "TLS init failed (system CA store): {}",
+                    e
                 ))
+            })
         }
         VerifyMode::CaBundle(path) => {
             // Load the PEM file supplied by the caller (same as requests' verify="/path")
