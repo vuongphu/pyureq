@@ -5,6 +5,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.6] — 2026-08-01
+
+### Fixed
+- **Timeouts were reported as `ConnectionError` instead of `Timeout`.** The
+  transport error was classified by searching the OS error message for
+  `"timed out"`/`"deadline"`. Windows reports `WSAETIMEDOUT` (os error 10060)
+  with a message containing neither phrase, so every timeout on Windows raised
+  `ConnectionError`. Errors are now matched on ureq's typed `Error::Timeout`
+  variant, so classification is platform-independent.
+- **`Session` did not pool connections.** A new agent — and therefore a new
+  connection pool — was constructed for *every* request, so five sequential
+  `Session.get()` calls opened five TCP connections despite the documented
+  keep-alive behaviour. `Session` now holds one long-lived agent, so repeated
+  requests to the same host reuse a single connection.
+- **`deflate` responses came back still compressed.** The default
+  `Accept-Encoding` advertised `gzip, deflate`, but the Rust core only decodes
+  gzip and brotli. A server honouring `deflate` returned raw zlib bytes, and
+  `.text` / `.json()` failed with `UnicodeDecodeError`. `deflate` is no longer
+  advertised. (Same class of bug as the brotli fix in 0.1.3.)
+- **Per-request `verify=` was ignored on the `Session` path.** `verify` was
+  never forwarded to the Rust client, so `session.get(url, verify=False)`
+  still performed full certificate verification. It is now honoured, and a
+  per-request `verify` gets its own connection pool: ureq keys pooled
+  connections on `(scheme, authority, proxy)` without regard to TLS config, so
+  sharing one pool would have let a `verify=False` connection be reused to
+  serve a later `verify=True` request — silently skipping validation.
+
+### Changed
+- Upgraded **ureq 2.12 → 3.3** and **pyo3 0.23 → 0.29**.
+- Dropped the unused `serde_json` dependency and ureq's default features, which
+  were compiling a second TLS stack (rustls + ring + webpki) that the crate
+  never used. TLS is native-tls only, so the OS trust store stays authoritative
+  — preserving the 0.1.5 `UnknownIssuer` fix.
+- Response bodies are no longer capped at ureq 3's default 10 MB read limit.
+- The extension is now declared free-threading safe (`gil_used = false`); it
+  holds no Python state while performing I/O.
+- Building from source now requires Rust 1.85 or newer (a ureq 3 requirement).
+  Installing from a published wheel is unaffected.
+
+### Added
+- Regression tests covering all four fixes above, including a hermetic
+  self-signed HTTPS fixture for the `verify` cases — no network access needed.
+- Type stubs now match the real extension signatures; `RustClient.__init__` was
+  missing `timeout`/`no_proxy_all` and `RustClient.request` was missing `proxy`.
+
+[0.1.6]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.6
+
+---
+
 ## [0.1.5] — 2026-04-05
 
 ### Fixed

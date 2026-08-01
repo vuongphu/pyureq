@@ -18,8 +18,10 @@ from .structures import CaseInsensitiveDict
 _builtin_ConnectionError = builtins.ConnectionError
 
 _DEFAULT_HEADERS = {
-    "User-Agent": "pyureq/0.1.5",
-    "Accept-Encoding": "gzip, deflate",
+    "User-Agent": "pyureq/0.1.6",
+    # Only advertise encodings the Rust core can actually decode.  Claiming
+    # `deflate` made servers return raw zlib bytes that broke .text/.json().
+    "Accept-Encoding": "gzip",
     "Accept": "*/*",
     "Connection": "keep-alive",
 }
@@ -113,7 +115,10 @@ def _dispatch(client_or_none, method, url, **kwargs):
 
     try:
         if client_or_none is not None:
-            # Session path — reuse the Rust client (connection pooling)
+            # Session path — reuse the Rust client (connection pooling).
+            # verify is forwarded so a per-request override is honoured; the
+            # Rust side keeps a separate agent (and pool) per verify mode, so
+            # an unverified connection is never reused for a verified request.
             raw = client_or_none.request(
                 method=method,
                 url=url,
@@ -123,8 +128,10 @@ def _dispatch(client_or_none, method, url, **kwargs):
                 content_type=content_type,
                 auth=auth_tuple,
                 timeout=timeout_f,
+                verify=verify,
                 allow_redirects=allow_redirects,
                 cookies=cookies_dict,
+                no_proxy_all=no_proxy_all,
                 proxy=proxy_url,
             )
         else:

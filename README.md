@@ -60,7 +60,8 @@ print(r.text)
 ## Sessions
 
 `pyureq.Session` maps directly to `requests.Session` and shares the same
-connection pool across requests:
+connection pool across requests, so repeated calls to the same host reuse a
+single TCP connection:
 
 ```python
 import pyureq
@@ -302,7 +303,7 @@ Python call
     ▼
 pyureq Python layer   ← thin: arg normalisation, exception mapping
     │
-    │  py.allow_threads()  ← GIL released here
+    │  py.detach()  ← GIL released here
     ▼
 Rust / ureq         ← HTTP request + response parsing, all in Rust
     │

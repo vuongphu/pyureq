@@ -13,14 +13,18 @@ Or use the native API::
     data = r.json()
 """
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 __author__ = "pyureq contributors"
 
 # Re-export the public surface that matches requests.*
+from . import (
+    _pyureq,  # noqa: F401 (Rust extension)
+    exceptions,  # noqa: F401
+)
 from .exceptions import (  # noqa: F401
     ChunkedEncodingError,
-    ConnectTimeout,
     ConnectionError,
+    ConnectTimeout,
     ContentDecodingError,
     HTTPError,
     InvalidHeader,
@@ -36,11 +40,8 @@ from .exceptions import (  # noqa: F401
     TooManyRedirects,
     URLRequired,
 )
-from .models import Response  # noqa: F401
-from .sessions import Session  # noqa: F401
-from . import exceptions  # noqa: F401
-from . import _pyureq  # noqa: F401 (Rust extension)
-
+from .models import Response
+from .sessions import Session
 from .sessions import _dispatch as _make_request
 
 # ---------------------------------------------------------------------------

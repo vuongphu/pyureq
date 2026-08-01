@@ -1,7 +1,10 @@
 [package]
 name = "pyureq"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
+# ureq 3.3 requires Rust 1.85; cargo enforces this floor with a clear error
+# instead of failing deep inside a dependency build.
+rust-version = "1.85"
 description = "A requests-compatible HTTP library powered by Rust's ureq"
 
 [lib]
@@ -9,11 +12,12 @@ name = "_pyureq"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39", "generate-import-lib"] }
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py39"] }
 # ureq is a true blocking HTTP client — no tokio, no async runtime.
-ureq = { version = "2", features = ["json", "native-tls"] }
+# default-features = false drops rustls/ring/webpki: we use native-tls so that
+# certificates are validated against the OS trust store on every platform.
+ureq = { version = "3", default-features = false, features = ["native-tls", "gzip"] }
 native-tls = "0.2"
-serde_json = "1"
 base64 = "0.22"
 
 [profile.release]

@@ -132,6 +132,51 @@ def delay_endpoint(secs):
     return jsonify({"delay": secs})
 
 
+@app.route("/encoding/<algo>", methods=["GET"])
+def encoding_endpoint(algo):
+    """Return a compressed body, but only using an encoding the client asked for.
+
+    A conforming server never applies an encoding absent from Accept-Encoding.
+    pyureq must therefore only advertise what the Rust core can decode — it
+    previously claimed `deflate`, which ureq cannot decompress, so bodies came
+    back as raw zlib bytes and .text/.json() failed.
+    """
+    from flask import Response
+
+    accepted = [
+        e.split(";")[0].strip()
+        for e in (request.headers.get("Accept-Encoding") or "").split(",")
+    ]
+    payload = json.dumps({"compressed": algo}).encode("utf-8")
+
+    if algo not in accepted:
+        # Client did not offer this encoding — send it uncompressed.
+        return Response(payload, content_type="application/json")
+
+    if algo == "gzip":
+        import gzip
+
+        body = gzip.compress(payload)
+    elif algo == "deflate":
+        import zlib
+
+        body = zlib.compress(payload)
+    else:
+        return jsonify({"error": f"unsupported algo {algo}"}), 400
+
+    return Response(
+        body,
+        content_type="application/json",
+        headers={"Content-Encoding": algo},
+    )
+
+
+@app.route("/echo-headers", methods=["GET"])
+def echo_headers_endpoint():
+    """Echo the request headers back so tests can assert what was sent."""
+    return jsonify({k.lower(): v for k, v in request.headers.items()})
+
+
 @app.route("/anything", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 def anything_endpoint():
     return jsonify(_common_response())

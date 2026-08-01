@@ -5,7 +5,6 @@ the compiled Rust extension.  They mirror the PyO3 #[pyclass] and #[pymethods]
 definitions in src/lib.rs.
 """
 
-from typing import Optional, Union
 
 class RawResponse:
     """Raw HTTP response returned directly from the Rust core.
@@ -30,19 +29,30 @@ class RawResponse:
     elapsed_secs: float
     """Round-trip time in seconds."""
 
-    encoding: str
-    """Character encoding extracted from the ``Content-Type`` header, or an
-    empty string if not present."""
+    encoding: str | None
+    """Character encoding parsed from the ``Content-Type`` header's ``charset``
+    parameter, or ``None`` if the header carries no charset."""
 
 
 class RustClient:
     """Persistent HTTP client with a connection pool.
 
     Created once per :class:`pyureq.Session` and reused across requests.  The
-    underlying ``ureq`` agent keeps connections alive for efficiency.
+    underlying ``ureq`` agent *is* the connection pool, so keep-alive works
+    across calls on the same instance.
+
+    A per-request ``verify`` that differs from the constructor value is served
+    by a separate internal agent (and therefore a separate pool), so a
+    connection opened with verification disabled is never reused for a
+    verified request.
     """
 
-    def __init__(self, verify: Union[bool, str] = True) -> None:
+    def __init__(
+        self,
+        verify: bool | str = True,
+        timeout: float | None = None,
+        no_proxy_all: bool = False,
+    ) -> None:
         """
         Parameters
         ----------
@@ -52,6 +62,12 @@ class RustClient:
             - ``True``  (default) – verify using the OS / system CA store
             - ``False`` – skip all certificate verification (insecure)
             - ``"/path/to/ca-bundle.pem"`` – verify using the given PEM file
+        timeout:
+            Default total timeout in seconds applied to every request that does
+            not supply its own.  ``None`` means no timeout.
+        no_proxy_all:
+            When ``True``, disable all proxy use for this client, including
+            proxies configured via environment variables.
         """
 
     def request(
@@ -59,14 +75,17 @@ class RustClient:
         *,
         method: str,
         url: str,
-        headers: Optional[dict[str, str]] = None,
-        params: Optional[list[tuple[str, str]]] = None,
-        body: Optional[bytes] = None,
-        content_type: Optional[str] = None,
-        auth: Optional[tuple[str, str]] = None,
-        timeout: Optional[float] = None,
+        headers: dict[str, str] | None = None,
+        params: list[tuple[str, str]] | None = None,
+        body: bytes | None = None,
+        content_type: str | None = None,
+        auth: tuple[str, str] | None = None,
+        timeout: float | None = None,
+        verify: bool | str | None = None,
         allow_redirects: bool = True,
-        cookies: Optional[dict[str, str]] = None,
+        cookies: dict[str, str] | None = None,
+        no_proxy_all: bool = False,
+        proxy: str | None = None,
     ) -> RawResponse:
         """Execute an HTTP request using the pooled client.
 
@@ -88,16 +107,26 @@ class RustClient:
         auth:
             ``(username, password)`` tuple for HTTP Basic authentication.
         timeout:
-            Total timeout in seconds.  ``None`` means no timeout.
+            Total timeout in seconds.  Overrides the client default; ``None``
+            falls back to the value given to :meth:`__init__`.
+        verify:
+            Per-request TLS verification mode.  ``None`` (default) uses the
+            client's setting.  A differing value is served by a separate
+            connection pool.
         allow_redirects:
             Follow 3xx redirects when ``True`` (default).
         cookies:
             Cookies to send as ``{name: value}``.
+        no_proxy_all:
+            When ``True``, disable all proxy use for this request.
+        proxy:
+            Explicit proxy URL for this request, e.g.
+            ``"http://user:pass@host:port"``.
 
         Returns
         -------
         RawResponse
-            The server's response.
+            The server's response.  4xx/5xx are returned normally, not raised.
 
         Raises
         ------
@@ -106,7 +135,8 @@ class RustClient:
         ConnectionError
             If a TCP/DNS error prevents the connection.
         RuntimeError
-            For all other transport-level errors (e.g. too many redirects).
+            For all other transport-level errors (TLS failures, too many
+            redirects, proxy errors, decompression failures).
         """
 
 
@@ -114,16 +144,17 @@ def http_request(
     *,
     method: str,
     url: str,
-    headers: Optional[dict[str, str]] = None,
-    params: Optional[list[tuple[str, str]]] = None,
-    body: Optional[bytes] = None,
-    content_type: Optional[str] = None,
-    auth: Optional[tuple[str, str]] = None,
-    timeout: Optional[float] = None,
-    verify: Union[bool, str] = True,
+    headers: dict[str, str] | None = None,
+    params: list[tuple[str, str]] | None = None,
+    body: bytes | None = None,
+    content_type: str | None = None,
+    auth: tuple[str, str] | None = None,
+    timeout: float | None = None,
+    verify: bool | str = True,
     allow_redirects: bool = True,
-    cookies: Optional[dict[str, str]] = None,
+    cookies: dict[str, str] | None = None,
     no_proxy_all: bool = False,
+    proxy: str | None = None,
 ) -> RawResponse:
     """Execute a one-shot (stateless) HTTP request.
 
@@ -159,10 +190,14 @@ def http_request(
         Cookies to send as ``{name: value}``.
     no_proxy_all:
         When ``True``, disable all proxy use (overrides environment variables).
+    proxy:
+        Explicit proxy URL, e.g. ``"http://user:pass@host:port"``.  Supports
+        http, https, socks4, socks4a, socks5 and socks5h schemes.
 
     Returns
     -------
     RawResponse
+        The server's response.  4xx/5xx are returned normally, not raised.
 
     Raises
     ------
@@ -171,7 +206,7 @@ def http_request(
     ConnectionError
         On TCP/DNS failure.
     RuntimeError
-        On other transport errors.
+        On other transport errors (TLS, redirects, proxy, decompression).
     """
 
 
