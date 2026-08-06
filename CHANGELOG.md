@@ -5,6 +5,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.7] — 2026-08-06
+
+### Fixed
+- **Headers you set explicitly were sent twice.** When a request supplied a
+  header that pyureq also derives on its own, both copies went out on the
+  wire:
+
+  | you pass | pyureq also derives | result |
+  |---|---|---|
+  | `headers={"Content-Type": ...}` + `json=` / `data=` | `Content-Type` | sent 2× |
+  | `headers={"Cookie": ...}` + `cookies=` | `Cookie` | sent 2× |
+  | `headers={"Authorization": ...}` + `auth=` | `Authorization` | sent 2× |
+
+  This is a regression introduced in 0.1.6 by the ureq 2 → ureq 3 migration.
+  ureq 2's `Request::set` **replaced** an existing header; ureq 3 builds
+  through `http::request::Builder::header`, which calls `try_append` and
+  therefore **appends**. The three call sites were migrated verbatim, so each
+  derived header stacked on top of the caller's.
+
+  Most servers tolerate a repeated header, which is why this went unnoticed —
+  it only breaks against strict gateways. Crypto.com's exchange API answers a
+  duplicated `Content-Type` with `{"code": 50001, "message": "ERR_INTERNAL"}`,
+  a generic error that points nowhere near the real cause; the same request
+  through `requests` succeeded, making it look like a server-side or
+  authentication problem.
+
+  pyureq now follows `requests`' rule: a derived header is only applied when
+  the caller did not supply one, so an explicit header always wins. Matching
+  is case-insensitive (`content-type` and `Content-Type` are the same header
+  per RFC 9110). Deriving still works unchanged when you pass no header of
+  your own.
+
+### Testing
+- New `tests/test_duplicate_headers.py` (12 tests) asserts on the **raw
+  request bytes** read off a socket. The existing WSGI/Flask test server
+  collapses repeated headers into a single mapping entry, so it structurally
+  could not observe this bug. Verified by rebuilding with the fix reverted:
+  8 of the 12 fail, while the four "derived headers still work" cases keep
+  passing — the suite targets the defect rather than pinning current
+  behaviour. Full suite: 135 passing.
+
+---
+
 ## [0.1.6] — 2026-08-01
 
 ### Fixed
@@ -50,6 +93,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Type stubs now match the real extension signatures; `RustClient.__init__` was
   missing `timeout`/`no_proxy_all` and `RustClient.request` was missing `proxy`.
 
+[0.1.7]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.7
 [0.1.6]: https://github.com/vuongphu/pyureq/releases/tag/v0.1.6
 
 ---

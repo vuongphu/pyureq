@@ -1,6 +1,6 @@
 [package]
 name = "pyureq"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 # ureq 3.3 requires Rust 1.85; cargo enforces this floor with a clear error
 # instead of failing deep inside a dependency build.

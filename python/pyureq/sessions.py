@@ -18,7 +18,7 @@ from .structures import CaseInsensitiveDict
 _builtin_ConnectionError = builtins.ConnectionError
 
 _DEFAULT_HEADERS = {
-    "User-Agent": "pyureq/0.1.6",
+    "User-Agent": "pyureq/0.1.7",
     # Only advertise encodings the Rust core can actually decode.  Claiming
     # `deflate` made servers return raw zlib bytes that broke .text/.json().
     "Accept-Encoding": "gzip",

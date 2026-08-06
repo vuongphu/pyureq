@@ -429,34 +429,56 @@ fn http_execute(
         .method(method.to_uppercase().as_str())
         .uri(&full_url);
 
+    // `Builder::header` APPENDS rather than replaces, so any header we derive
+    // ourselves (Content-Type from the body, Cookie from cookies=,
+    // Authorization from auth=) would be sent twice when the caller also
+    // passed it explicitly.  Strict gateways reject the ambiguous request —
+    // Crypto.com answers 50001 ERR_INTERNAL for a duplicated Content-Type.
+    // Match `requests`: an explicit caller header always wins.
+    let has_header = |name: &str| {
+        headers
+            .as_ref()
+            .is_some_and(|h| h.keys().any(|k| k.eq_ignore_ascii_case(name)))
+    };
+    let caller_set_content_type = has_header("content-type");
+    let caller_set_cookie = has_header("cookie");
+    let caller_set_authorization = has_header("authorization");
+
     // Headers
-    if let Some(hdrs) = headers {
-        for (k, v) in &hdrs {
+    if let Some(hdrs) = &headers {
+        for (k, v) in hdrs {
             builder = builder.header(k, v);
         }
     }
 
     // Cookies
-    if let Some(cks) = cookies {
-        if !cks.is_empty() {
-            let s: String = cks
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect::<Vec<_>>()
-                .join("; ");
-            builder = builder.header("Cookie", &s);
+    if !caller_set_cookie {
+        if let Some(cks) = cookies {
+            if !cks.is_empty() {
+                let s: String = cks
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                builder = builder.header("Cookie", &s);
+            }
         }
     }
 
     // Basic auth
-    if let Some((user, pass)) = auth {
-        let creds = base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", user, pass));
-        builder = builder.header("Authorization", &format!("Basic {}", creds));
+    if !caller_set_authorization {
+        if let Some((user, pass)) = auth {
+            let creds =
+                base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", user, pass));
+            builder = builder.header("Authorization", &format!("Basic {}", creds));
+        }
     }
 
-    // Content-Type
-    if let Some(ct) = content_type {
-        builder = builder.header("Content-Type", ct);
+    // Content-Type derived from the body (json= / data=).
+    if !caller_set_content_type {
+        if let Some(ct) = content_type {
+            builder = builder.header("Content-Type", ct);
+        }
     }
 
     let req = builder
