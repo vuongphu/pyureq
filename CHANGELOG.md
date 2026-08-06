@@ -5,6 +5,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Benchmarks only — no library code changed.** `bench_stress.py` reported
+  `req/s` as *attempted* requests per second, counting failures as throughput.
+  Because a refused connection returns in microseconds, a library that failed
+  99% of the time outscored one serving every request. The 2026-08 Windows CI
+  run ranked `requests` above pyureq at 50 threads, 824 vs 633 req/s — on 18
+  successful requests against pyureq's 3235.
+
+  The headline metric is now **good/s** (HTTP 200s per second); the attempt rate
+  is kept as a `try/s` column for diagnosis, and `err_conn` is broken out
+  alongside `t/o`. Numbers from this benchmark are not comparable across this
+  change.
+
+  Three related fixes to the same harness:
+  - The test server now serves **HTTP/1.1** (`start_server(keep_alive=True)`).
+    Werkzeug's HTTP/1.0 default closes the socket after every response, so the
+    SESSION sweep had nothing to pool and silently re-measured STATELESS. The
+    pytest suite keeps the HTTP/1.0 default; all 135 tests still pass.
+  - A `--cooldown` drain (default 30s on Windows) runs between libraries.
+    Libraries are benchmarked sequentially, so whoever ran first spent the
+    host's ephemeral-port budget on everyone after it.
+  - The break line now distinguishes host limits from library faults: failures
+    that are almost entirely connect-time point at ephemeral-port exhaustion,
+    which is a property of the machine and the offered load. The sweep offered
+    ~615 new conn/s against a Windows ceiling of ~137 (16384 ports / 120s
+    TIME_WAIT); Linux, at ~470/s plus tuple reuse, showed 0% errors throughout.
+    CI now widens the Windows port range and caps the default sweep at 100
+    threads.
+
+  With these applied, Windows reports 0.00% errors at every level and pyureq
+  leads both modes (1352 good/s stateless, 1227 session, vs curl_cffi's 915 /
+  983 and requests' 730 / 723).
+
+---
+
 ## [0.1.7] — 2026-08-06
 
 ### Fixed

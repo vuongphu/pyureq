@@ -39,7 +39,13 @@ URL  = f"{BASE}/get"
 
 def start_threaded_server():
     from flask import Flask, jsonify, request as freq
+    from werkzeug.serving import WSGIRequestHandler
     app = Flask(__name__)
+
+    # HTTP/1.1 so connections are reusable.  Under Werkzeug's HTTP/1.0 default
+    # the socket closes after every response, which makes the SESSION sweep
+    # below a duplicate of STATELESS and burns one ephemeral port per request.
+    WSGIRequestHandler.protocol_version = "HTTP/1.1"
 
     @app.route("/get")
     def get_route():

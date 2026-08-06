@@ -15,7 +15,7 @@ on:
         required: false
       stress_threads:
         description: "Thread sweep for bench_stress.py (comma-separated)"
-        default: "50,100,200"
+        default: "50,100"
         required: false
 
 jobs:
@@ -60,6 +60,20 @@ jobs:
       - name: Install benchmark dependencies
         run: pip install requests httpx curl_cffi flask
 
+      # A 200-thread sweep offers ~615 new conn/s. Windows sustains ~137
+      # (16384 ephemeral ports / 120s TcpTimedWaitDelay), so connect() starts
+      # failing for reasons that have nothing to do with the library under
+      # test. Widen the range and shorten TIME_WAIT to raise that ceiling to
+      # ~1000 conn/s; the benchmark reports the budget it detects at startup.
+      - name: Widen ephemeral port range (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          netsh int ipv4 set dynamicport tcp start=10000 num=55535
+          Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' `
+            -Name 'TcpTimedWaitDelay' -Value 30 -Type DWord -Force
+          netsh int ipv4 show dynamicport tcp
+
       - name: Create results directory
         run: mkdir -p results
 
@@ -89,7 +103,7 @@ jobs:
           python benchmarks/bench_stress.py \
             --duration 5 \
             --warmup 1 \
-            --threads ${{ github.event.inputs.stress_threads || '50,100,200' }} \
+            --threads ${{ github.event.inputs.stress_threads || '50,100' }} \
             --json results/bench_stress.json \
           | tee results/bench_stress.txt
 

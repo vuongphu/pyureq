@@ -215,14 +215,27 @@ def response_headers_endpoint():
 # Server lifecycle
 # ---------------------------------------------------------------------------
 
-def start_server(port: int = 18888):
+def start_server(port: int = 18888, keep_alive: bool = False):
     """Start the Flask server in a background daemon thread.
+
+    ``keep_alive`` switches the WSGI handler to HTTP/1.1.  Werkzeug defaults to
+    HTTP/1.0, which closes the socket after every response: client-side
+    connection pooling then has nothing to reuse, so a "session" benchmark
+    silently measures the same fresh-connection path as the stateless one, and
+    every request burns an ephemeral port.  Benchmarks need this on.  The test
+    suite is indifferent, so it stays off by default rather than perturbing 135
+    passing tests.
 
     Returns a simple object with a ``shutdown()`` method.
     """
     import logging
     log = logging.getLogger("werkzeug")
     log.setLevel(logging.ERROR)
+
+    if keep_alive:
+        # Class attribute on werkzeug's handler — process-global by design.
+        from werkzeug.serving import WSGIRequestHandler
+        WSGIRequestHandler.protocol_version = "HTTP/1.1"
 
     server_thread = threading.Thread(
         target=lambda: app.run(host="127.0.0.1", port=port, threaded=True, use_reloader=False),

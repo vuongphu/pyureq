@@ -37,6 +37,8 @@ dist/
 
 # Benchmark output
 results/
+# Downloaded CI benchmark artifacts
+benchmark/
 
 # Coverage reports
 coverage.xml
