@@ -42,6 +42,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.1.8] — 2026-08-07
+
+### Fixed
+- **Non-ASCII bytes in the request target were sent unencoded.** Any query
+  containing UTF-8 bytes — for example a non-ASCII exchange symbol — reached
+  the wire as raw bytes. RFC 7230 allows UTF-8 in a request target only when
+  percent-encoded; gateways that don't auto-decode (most crypto exchanges)
+  refuse to match the symbol, so the call returned an empty data array
+  with no error code, looking like a server-side or authentication problem.
+  `requests` encodes through urllib3's `_PATH_CHARS`/`_QUERY_CHARS`;
+  pyureq did not, because ureq 2's `Request::set` accepted any string and
+  the gap stayed hidden. ureq 3 hands the URI to the `http` crate's
+  `Uri::try_from`, which now requires RFC 3986 bytes — and as a side effect
+  ureq started encoding `+` and `=` (and rejecting existing `%XX` sequences
+  in some builds), silently corrupting callers that used them in query
+  strings.
+
+  pyureq now percent-encodes the URL itself before building the request:
+  split on the first `?`, prefix through a path-safe set (RFC 3986
+  unreserved + path sub-delimiters), suffix through a query-safe set that
+  keeps `?`/`&`/`=` literal. Output is byte-identical to
+  `requests.Request('GET', url).prepare().url` for the user's URL and four
+  other shapes I tested against. Existing `%XX` sequences pass through
+  unchanged.
+
+### Added
+- Regression tests in `tests/test_uri_encoding.py` (7 tests) read the raw
+  request bytes off a socket and assert on the request line. A WSGI/Flask
+  test server decodes the URL itself before our code sees it, so it
+  structurally can't observe this bug — same caveat as the
+  duplicate-headers suite.
+
+### Dependency
+- Adds `percent-encoding = "2"`. Zero transitive dependencies.
+
+---
+
 ## [0.1.7] — 2026-08-06
 
 ### Fixed

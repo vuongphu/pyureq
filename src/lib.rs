@@ -1,4 +1,5 @@
 use base64::Engine as _;
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::collections::HashMap;
@@ -374,6 +375,68 @@ fn pct(s: &str) -> String {
     out
 }
 
+// ---------------------------------------------------------------------------
+// URL percent-encoding
+//
+// ureq 2's `Request::set` accepted any string, so we never encoded the URL
+// ourselves.  ureq 3 hands the request URI to the `http` crate's
+// `Uri::try_from`, which requires the request target to be RFC 3986 bytes.
+// The result of leaving it un-encoded: queries containing non-ASCII bytes
+// went on the wire as raw UTF-8, and gateways that don't auto-decode (most
+// crypto exchanges) refused to match the symbol.
+//
+// We split the URL on the first '?' and encode each half separately so that
+// '&' and '=' in the query are left literal, matching what `requests` does
+// via urllib3's `_PATH_CHARS` / `_QUERY_CHARS`.  Existing '%XX' sequences
+// pass through unchanged — the safe set does not include '%', and the
+// encoder's Display impl never produces '%25' from an already-encoded byte.
+// ---------------------------------------------------------------------------
+
+/// Bytes that may NOT be percent-encoded in the URL path: RFC 3986
+/// unreserved + path-segment sub-delimiters.  `?` is kept here so the
+/// split-on-`?` logic preserves the request-line separator.
+const URL_PATH: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'$')
+    .add(b'<')
+    .add(b'>')
+    .add(b'?')
+    .add(b'`')
+    .add(b'{')
+    .add(b'}');
+
+/// Same as `URL_PATH` but without `?` and without a few reserved characters
+/// that path uses, so we don't accidentally re-encode the separator or break
+/// query structure (`&`, `=` are explicitly kept literal).
+const URL_QUERY: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'<')
+    .add(b'>')
+    .add(b'`')
+    .add(b'{')
+    .add(b'}');
+
+/// Percent-encode a URL so the request target is RFC 3986-compliant.
+///
+/// Splits on the first '?' so the prefix uses `URL_PATH` (which leaves `?`
+/// for the separator) and the suffix uses `URL_QUERY`.  Existing `%XX`
+/// sequences pass through unchanged.
+fn percent_encode_uri(url: &str) -> String {
+    match url.find('?') {
+        Some(i) => {
+            let mut out = String::with_capacity(url.len() + 8); // headroom for %XX triples
+            out.extend(utf8_percent_encode(&url[..i], URL_PATH));
+            out.extend(utf8_percent_encode(&url[i..], URL_QUERY));
+            out
+        }
+        None => utf8_percent_encode(url, URL_PATH).to_string(),
+    }
+}
+
 /// Translate a `ureq::Error` into the Python exception the wrapper expects.
 ///
 /// ureq 3 has a dedicated `Error::Timeout` variant, so timeouts are detected
@@ -424,10 +487,13 @@ fn http_execute(
     no_proxy_all: bool,
 ) -> PyResult<RawResponse> {
     let full_url = url_with_params(url, &params);
+    // Encode the URL so non-ASCII bytes (e.g. a CN symbol in a query) reach
+    // the wire as `%XX` rather than raw UTF-8.  See `percent_encode_uri`.
+    let safe_url = percent_encode_uri(&full_url);
 
     let mut builder = ureq::http::Request::builder()
         .method(method.to_uppercase().as_str())
-        .uri(&full_url);
+        .uri(&safe_url);
 
     // `Builder::header` APPENDS rather than replaces, so any header we derive
     // ourselves (Content-Type from the body, Cookie from cookies=,

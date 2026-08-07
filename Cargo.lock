@@ -434,10 +434,11 @@ dependencies = [
 
 [[package]]
 name = "pyureq"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "base64",
  "native-tls",
+ "percent-encoding",
  "pyo3",
  "ureq",
 ]

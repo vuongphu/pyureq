@@ -1,6 +1,6 @@
 [package]
 name = "pyureq"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 # ureq 3.3 requires Rust 1.85; cargo enforces this floor with a clear error
 # instead of failing deep inside a dependency build.
@@ -19,6 +19,10 @@ pyo3 = { version = "0.29", features = ["extension-module", "abi3-py39"] }
 ureq = { version = "3", default-features = false, features = ["native-tls", "gzip"] }
 native-tls = "0.2"
 base64 = "0.22"
+# URL percent-encoding.  ureq 3 hands the request URI to the `http` crate,
+# which rejects raw non-ASCII bytes; without encoding, exchanges and other
+# strict gateways refuse to match symbols containing non-ASCII characters.
+percent-encoding = "2"
 
 [profile.release]
 codegen-units = 1
